@@ -3,8 +3,8 @@
 # Author          : Johan Vromans
 # Created On      : Mon Sep 17 10:45:33 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Tue Sep 18 19:27:57 2018
-# Update Count    : 35
+# Last Modified On: Sun Sep 23 17:04:50 2018
+# Update Count    : 36
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -16,7 +16,7 @@ use Encode;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( makenote 0.01 );
+my ($my_name, $my_version) = qw( makenote 0.02 );
 
 ################ Command line parameters ################
 
@@ -150,6 +150,7 @@ close($fd);
 
 if ( $type == 4 ) {
     # TODO: copy data file to .resource
+    ...
 }
 
 print STDOUT ($id, "\n") if $verbose;

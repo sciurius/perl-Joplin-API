@@ -3,8 +3,8 @@
 # Author          : Johan Vromans
 # Created On      : Mon Sep 17 10:45:33 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Sun Sep 23 17:02:26 2018
-# Update Count    : 37
+# Last Modified On: Sun Sep 23 17:22:31 2018
+# Update Count    : 51
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -24,9 +24,8 @@ use Getopt::Long 2.13;
 
 # Command line options.
 my $dir = "/home/jv/Cloud/ownCloud/Notes/Joplin";
-my $folder;
 my $title;
-my $parent;
+my $output;
 my $verbose = 1;		# verbose processing
 
 # Development options (not shown with -help).
@@ -46,141 +45,48 @@ my $TMPDIR = $ENV{TMPDIR} || $ENV{TEMP} || '/usr/tmp';
 
 ################ The Process ################
 
-my $id = uuid();
+my $id;
+if ( $output ) {
+    ( $id ) = $output =~ m;(?:^|/)([0-9a-f]{32})\.md$;;
+    die("Invalid output name: $output\n") unless $id;
+}
+else {
+    $id = uuid();
+}
+
 my @tm = gmtime;
 my $ts = sprintf( "%04d-%02d-%02dT%02d:%02d:%02d.000Z",
 		  1900+$tm[5], 1+$tm[4], @tm[3,2,1,0] );
-my $author = (getpwuid($<))[6];
-my $data;
-my $meta;
-my $type;
 
-if ( $parent && $parent !~ /^[0-9a-f]{32}$/ ) {
-    $parent = find_folder( $parent, $dir );
-}
+my $data = do { local $/; <> };
+$data = decode_utf8($data);
 
-if ( $folder ) {
-    die("Folder needs title id!\n") unless $title;
-    $type = 2;
-    $data = $title;
-    $parent //= "";
-    $meta = <<EOD;
-id: $id
-parent_id: 
-created_time: $ts
-updated_time: $ts
-user_created_time: $ts
-user_updated_time: $ts
-encryption_cipher_text: 
-encryption_applied: 0
-EOD
-}
-elsif ( 0 ) {			# image
-    die("Note needs parent id!\n") unless $parent;
+$data =~ s/^(id: ).*/$1$id/m;
+$data =~ s/^(source: ).*/${1}joplin-$my_name/m;
+$data =~ s/^(source_application: ).*/${1}nl.squirrel.joplin-$my_name/m;
+$data =~ s/^((?:user_)?updated_time: ).*/$1$ts/mg;
+$data =~ s/^- \[ \].*\n//mg;
+$data =~ s/^- \[\S\] (.*\n)/- $1/mg;
+$data =~ s/^##.*\n\n//mg;
 
-    $type = 4;
-    $data = shift(@ARGV);
-
-    $meta = <<EOD;
-id: $id
-mime: image/jpeg
-filename:
-file_extension: jpeg
-parent_id: $parent
-created_time: $ts
-updated_time: $ts
-user_created_time: $ts
-user_updated_time: $ts
-encryption_cipher_text: 
-encryption_applied: 0
-encryption_blob_encrypted: 0
-EOD
-}
-elsif ( 0 ) {			# key
-    $type = 9;
-    $meta = <<EOD;
-id: $id
-created_time: $ts
-updated_time: $ts
-source_application: net.cozic.joplin-desktop
-encryption_method: 2
-checksum: ...64 hex chars ...
-content: { ... }
-EOD
+if ( $title ) {
+    $data =~ s/^(.*)/$title/;
 }
 else {
-    die("Note needs parent id!\n") unless $parent;
-
-    $type = 1;
-    $data = do { local $/; <> };
-    if ( $title ) {
-	$data = $title . "\n\n". $data;
-    }
-
-    $meta = <<EOD;
-id: $id
-parent_id: $parent
-created_time: $ts
-updated_time: $ts
-is_conflict: 0
-latitude: 0.00000000
-longitude: 0.00000000
-altitude: 0.0000
-author: $author
-source_url: 
-is_todo: 0
-todo_due: 0
-todo_completed: 0
-source: joplin
-source_application: nl.squirrel.joplintools
-application_data: 
-order: 0
-user_created_time: $ts
-user_updated_time: $ts
-encryption_cipher_text: 
-encryption_applied: 0
-EOD
+    @tm = localtime;
+    $ts = sprintf( "%04d-%02d-%02d %02d:%02d:%02d",
+		   1900+$tm[5], 1+$tm[4], @tm[3,2,1,0] );
+    $data =~ s/^(.*)/$1 $ts/;
 }
 
 my $fd;
-open( $fd, '>', "$id.md" );
-print $fd ( $data, "\n\n" ) if defined $data;
-print $fd ( encode_utf8($meta), "type_: $type" );
+open( $fd, '>:utf8', "$id.md" );
+print $fd ( $data );
 close($fd);
-
-if ( $type == 4 ) {
-    # TODO: copy data file to .resource
-    ...
-}
 
 print STDOUT ($id, "\n") if $verbose;
 
 ################ Subroutines ################
-
-sub find_folder {
-    my ( $pat, $dir ) = @_;
-
-    if ( $pat =~ m;^/(.*); ) {
-	$pat = $1;
-    }
-    else {
-	$pat = qr/^.*$pat/i;	# case insens substr
-    }
-
-    my @files = glob("$dir/????????????????????????????????.md");
-
-    foreach ( @files ) {
-	my $fd;
-	open( $fd, '<', "$_" ) or die;
-	my $data = do { local $/; <$fd> };
-	if ( $data =~ /^type_: 2\z/m
-	     && $data =~ $pat
-	     && $data =~ /^id:\s*(.{32})$/m
-	   ) {
-	    return $1
-	}
-    }
-}
 
 sub uuid {
     my $uuid = "";
@@ -204,9 +110,8 @@ sub app_options {
 
     # Process options.
     if ( @ARGV > 0 ) {
-	GetOptions('parent=s'	=> \$parent,
+	GetOptions('output=s'	=> \$output,
 		   'title=s'	=> \$title,
-		   'folder'	=> \$folder,
 		   'dir=s'	=> \$dir,
 		   'ident'	=> \$ident,
 		   'verbose+'	=> \$verbose,
@@ -232,16 +137,15 @@ __END__
 
 =head1 NAME
 
-makenote - make a Joplin compliant note file
+picklist - make a picklist out of a Joplin note
 
 =head1 SYNOPSIS
 
 makenote [options] [file ...]
 
  Options:
-   --parent=XXX		note parent (required)
-   --folder		create folder
    --title=XXX		title (optional)
+   --output=XXX		output file (optional)
    --dir=XXX		where the joplin notes reside
    --ident		shows identification
    --quiet		runs quietly
@@ -253,32 +157,24 @@ makenote [options] [file ...]
 
 =over 8
 
-=item B<--folder>
+=item B<--output=>I<XXX>
 
-Creates a folder instead of a note. For a folder, the title is mandatory
-and no content is needed. A parent is optional.
+Specifies the output file for the new note.
 
-=item B<--parent=>I<XXX>
+If used, the final (or only) component of the file name must be a 32
+character hex string, followed by C<.md>.
 
-Specifies the parent for the note or folder.
-
-The argument must be a 32 character hex string, otherwise it is
-interpreted as a search argument.
-
-If a search argument, it is used for case insensitive substring search
-on folder titles. If it starts with a C</>, it is interpreted as a
-regular expression patter to be matched against the folder titles.
-Note that this requires a valid <--dir> location.
+By default the new content is written to a new note file B<in the
+current folder>, even if B<--dir> is used.
 
 =item B<--dir=>I<XXX>
 
-The location where the Joplin notes reside. Note this is only used to
-find folder ids when the B<--parent> option specifies a search
-argument.
+The location where the Joplin notes reside. This is currently not used.
 
 =item B<--title=>I<XXX>
 
-Specifies the title for the note or folder.
+Specifies a title for the note. If this is not used, a timestamp is
+appended to the current title of the note.
 
 =item B<--help>
 
@@ -310,6 +206,7 @@ concatenated to form the content of the new note.
 
 =head1 DESCRIPTION
 
-B<This program> will create Joplin compliant note and folder documents.
+B<This program> will read Joplin note and create a new new that has
+all unchecked list items, and possible section titles, removed.
 
 =cut
