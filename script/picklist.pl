@@ -1,10 +1,10 @@
 #!/usr/bin/perl -w
 
 # Author          : Johan Vromans
-# Created On      : Mon Sep 17 10:45:33 2018
+# Created On      : Mon Sep  3 10:45:33 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Sun Sep 23 17:22:31 2018
-# Update Count    : 51
+# Last Modified On: Thu Sep 27 20:39:46 2018
+# Update Count    : 54
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -16,7 +16,7 @@ use Encode;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( picklist 0.01 );
+my ($my_name, $my_version) = qw( picklist 0.02 );
 
 ################ Command line parameters ################
 
@@ -80,7 +80,7 @@ else {
 }
 
 my $fd;
-open( $fd, '>:utf8', "$id.md" );
+open( $fd, '>:utf8', "$dir/$id.md" );
 print $fd ( $data );
 close($fd);
 
@@ -206,7 +206,32 @@ concatenated to form the content of the new note.
 
 =head1 DESCRIPTION
 
-B<This program> will read Joplin note and create a new new that has
+B<This program> will read Joplin note and create a new note that has
 all unchecked list items, and possible section titles, removed.
 
+=head1 AUTHOR
+
+Johan Vromans C<< <sciurius at github dot com > >>
+
+=head1 SUPPORT
+
+Joplin-Tools development is hosted on GitHub, repository
+L<https://github.com/sciurius/Joplin-Tools>.
+
+Please report any bugs or feature requests to the GitHub issue tracker,
+L<https://github.com/sciurius/Joplin-Tools/issues>.
+
+=head1 LICENSE
+
+Copyright (C) 2018 Johan Vromans,
+
+This program is free software. You can redistribute it and/or
+modify it under the terms of the Artistic License 2.0.
+
+This program is distributed in the hope that it will be useful,
+but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
 =cut
+
+1;

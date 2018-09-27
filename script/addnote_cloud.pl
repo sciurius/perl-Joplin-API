@@ -1,10 +1,10 @@
 #!/usr/bin/perl -w
 
 # Author          : Johan Vromans
-# Created On      : Mon Sep 17 10:45:33 2018
+# Created On      : Mon Sep  3 10:45:33 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Wed Sep 26 17:21:32 2018
-# Update Count    : 45
+# Last Modified On: Thu Sep 27 20:40:23 2018
+# Update Count    : 47
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -322,4 +322,29 @@ concatenated to form the content of the new note.
 
 B<This program> will create Joplin compliant note and folder documents.
 
+=head1 AUTHOR
+
+Johan Vromans C<< <sciurius at github dot com > >>
+
+=head1 SUPPORT
+
+Joplin-Tools development is hosted on GitHub, repository
+L<https://github.com/sciurius/Joplin-Tools>.
+
+Please report any bugs or feature requests to the GitHub issue tracker,
+L<https://github.com/sciurius/Joplin-Tools/issues>.
+
+=head1 LICENSE
+
+Copyright (C) 2018 Johan Vromans,
+
+This program is free software. You can redistribute it and/or
+modify it under the terms of the Artistic License 2.0.
+
+This program is distributed in the hope that it will be useful,
+but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
 =cut
+
+1;

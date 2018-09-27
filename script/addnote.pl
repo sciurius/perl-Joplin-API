@@ -4,10 +4,10 @@
 # See https://discourse.joplin.cozic.net/t/web-clipper-is-now-available-beta-feature/154/37
 
 # Author          : Johan Vromans
-# Created On      : Wed Sep 26 13:44:45 2018
+# Created On      : Wed Sep  5 13:44:45 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Wed Sep 26 23:48:18 2018
-# Update Count    : 105
+# Last Modified On: Thu Sep 27 20:40:05 2018
+# Update Count    : 107
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -289,4 +289,29 @@ appear on the command line.
 
 B<This program> will add a note to a Joplin server running the web API.
 
+=head1 AUTHOR
+
+Johan Vromans C<< <sciurius at github dot com > >>
+
+=head1 SUPPORT
+
+Joplin-Tools development is hosted on GitHub, repository
+L<https://github.com/sciurius/Joplin-Tools>.
+
+Please report any bugs or feature requests to the GitHub issue tracker,
+L<https://github.com/sciurius/Joplin-Tools/issues>.
+
+=head1 LICENSE
+
+Copyright (C) 2018 Johan Vromans,
+
+This program is free software. You can redistribute it and/or
+modify it under the terms of the Artistic License 2.0.
+
+This program is distributed in the hope that it will be useful,
+but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
 =cut
+
+1;
