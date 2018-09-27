@@ -3,8 +3,8 @@
 # Author          : Johan Vromans
 # Created On      : Mon Sep 17 10:45:33 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Sun Sep 23 17:04:50 2018
-# Update Count    : 36
+# Last Modified On: Wed Sep 26 17:21:32 2018
+# Update Count    : 45
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -16,7 +16,7 @@ use Encode;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( makenote 0.02 );
+my ($my_name, $my_version) = qw( addnote_cloud 0.02 );
 
 ################ Command line parameters ################
 
@@ -55,9 +55,7 @@ my $data;
 my $meta;
 my $type;
 
-if ( $parent && $parent !~ /^[0-9a-f]{32}$/ ) {
-    $parent = find_folder( $parent, $dir );
-}
+$parent = find_folder( $parent, $dir );
 
 if ( $folder ) {
     die("Folder needs title id!\n") unless $title;
@@ -109,9 +107,10 @@ content: { ... }
 EOD
 }
 else {
-    die("Note needs parent id!\n") unless $parent;
-
     $type = 1;
+    if ( @ARGV && !$title ) {
+	( $title = $ARGV[0] ) =~ s;^.*/;;
+    }
     $data = do { local $/; <> };
     if ( $title ) {
 	$data = $title . "\n\n". $data;
@@ -143,7 +142,7 @@ EOD
 }
 
 my $fd;
-open( $fd, '>', "$id.md" );
+open( $fd, '>', "$dir/$id.md" );
 print $fd ( $data, "\n\n" ) if defined $data;
 print $fd ( encode_utf8($meta), "type_: $type" );
 close($fd);
@@ -160,19 +159,29 @@ print STDOUT ($id, "\n") if $verbose;
 sub find_folder {
     my ( $pat, $dir ) = @_;
 
-    if ( $pat =~ m;^/(.*); ) {
-	$pat = $1;
-    }
-    else {
-	$pat = qr/^.*$pat/i;	# case insens substr
-    }
-
     my @files = glob("$dir/????????????????????????????????.md");
 
-    foreach ( @files ) {
-	my $fd;
-	open( $fd, '<', "$_" ) or die;
+    if ( defined($pat) ) {
+	if ( $pat =~ m;^/(.*); ) {
+	    $pat = $1;
+	}
+	else {
+	    $pat = qr/^.*$pat/i;	# case insens substr
+	}
+	$folder = _find_folder( $pat, \@files );
+    }
+
+    return $folder || _find_folder( "Imported Notes", \@files );
+}
+
+sub _find_folder {
+    my ( $pat, $files ) = @_;
+
+    foreach ( @$files ) {
+	open( my $fd, '<', "$_" ) or die("$_: $!\n");
 	my $data = do { local $/; <$fd> };
+	close($fd);
+
 	if ( $data =~ /^type_: 2\z/m
 	     && $data =~ $pat
 	     && $data =~ /^id:\s*(.{32})$/m
@@ -180,6 +189,7 @@ sub find_folder {
 	    return $1
 	}
     }
+    return;
 }
 
 sub uuid {

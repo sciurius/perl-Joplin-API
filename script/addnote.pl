@@ -6,8 +6,8 @@
 # Author          : Johan Vromans
 # Created On      : Wed Sep 26 13:44:45 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Wed Sep 26 17:04:52 2018
-# Update Count    : 101
+# Last Modified On: Wed Sep 26 23:48:18 2018
+# Update Count    : 105
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -85,8 +85,30 @@ if ( $file =~ /\.(jpe?g|gif|png)$/ ) {			# image
     $content->{body} = $file;
     $content->{image_data_url} = "data:$mime;base64,$data";
 }
+elsif ( $file =~ /^https?:/ ) {
+    require LWP::UserAgent;
+    my $ua = LWP::UserAgent->new;
+    my $res = $ua->get($file);
+    unless ( $res->is_success ) {
+	die("$file: ", $res->status_line, "\n");
+    }
+    my $data = $res->decoded_content;
+    if ( $data =~ /^<(!doctype html|html)/i ) {
+	$content->{body_html} = $data;
+    }
+    else {
+	$content->{body} = $data;
+    }
+    $content->{base_url} = $file;
+}
 else {
-    $content->{body} = do { local $/; <> };
+    my $data = do { local $/; <> };
+    if ( $data =~ /^<html/i ) {
+	$content->{body_html} = $data;
+    }
+    else {
+	$content->{body} = $data;
+    }
 }
 
 my $res = $ua->post( "$host:$port/notes",
