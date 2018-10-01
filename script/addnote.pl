@@ -2,12 +2,13 @@
 
 # Add notes to Joplin using the Web Clipper API.
 # See https://discourse.joplin.cozic.net/t/web-clipper-is-now-available-beta-feature/154/37
+# NEW API, See https://joplin.cozic.net/api/
 
 # Author          : Johan Vromans
 # Created On      : Wed Sep  5 13:44:45 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Thu Sep 27 20:40:05 2018
-# Update Count    : 107
+# Last Modified On: Mon Oct  1 16:01:28 2018
+# Update Count    : 112
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -19,7 +20,7 @@ use Encode;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( addnote 0.01 );
+my ($my_name, $my_version) = qw( addnote 0.03 );
 
 ################ Command line parameters ################
 
@@ -31,6 +32,9 @@ my $parent;
 my $host = "http://127.0.0.1";
 my $port;
 my $verbose = 1;		# verbose processing
+
+# Run Joplin and copy the token from the Web Clipper options page.
+my $token = "YOUR TOKEN GOES HERE";
 
 # Development options (not shown with -help).
 my $debug = 0;			# debugging
@@ -111,7 +115,7 @@ else {
     }
 }
 
-my $res = $ua->post( "$host:$port/notes",
+my $res = $ua->post( "$host:$port/notes?token=$token",
 		     Content => $pp->encode($content) );
 unless ( $res->is_success ) {
     die( $res->status_line );
@@ -134,7 +138,7 @@ sub find_folder {
     my ( $pat ) = @_;
 
     $ua->timeout(3);
-    my $res = $ua->get("$host:$port/folders");
+    my $res = $ua->get("$host:$port/folders?token=$token");
     unless ( $res->is_success ) {
 	die( $res->status_line );
     }
@@ -191,6 +195,7 @@ sub app_options {
 		   'title=s'	=> sub { $title  = decode_utf8($_[1]) },
 		   'host=s'	=> sub { $host   = decode_utf8($_[1]) },
 		   'port=i'	=> \$port,
+		   'token=s'	=> \$token,
 		   'ident'	=> \$ident,
 		   'verbose+'	=> \$verbose,
 		   'quiet'	=> sub { $verbose = 0 },
@@ -226,6 +231,7 @@ makenote [options] [file ...]
    --title=XXX		title (optional)
    --host=XXX		the host running the Joplin server
    --port=NNN		Joplin server port, if not default
+   --token=XXX		Joplin server access token
    --ident		shows identification
    --quiet		runs quietly
    --help		shows a brief help message and exits
@@ -253,6 +259,10 @@ Default is the local host.
 
 The port where the Joplin server is listening to.
 Default port is 41184.
+
+=item B<--token=>I<XXX>
+
+Access token for Joplin. You can find it on the Web Clipper options page.
 
 =item B<--title=>I<XXX>
 
