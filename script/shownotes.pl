@@ -3,8 +3,8 @@
 # Author          : Johan Vromans
 # Created On      : Mon Sep  3 10:45:33 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Thu Sep 27 20:41:05 2018
-# Update Count    : 74
+# Last Modified On: Thu Oct 11 16:53:27 2018
+# Update Count    : 186
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -41,10 +41,6 @@ my $TMPDIR = $ENV{TMPDIR} || $ENV{TEMP} || '/usr/tmp';
 
 ################ The Process ################
 
-my $tree;
-
-
-my $nb = Joplin::Notebook->new;
 foreach my $file ( @ARGV ) {
     my $fd;
     unless ( open( $fd, '<:utf8', $file ) ) {
@@ -55,86 +51,62 @@ foreach my $file ( @ARGV ) {
     my $raw = do { local $/; <$fd> };
     close($fd);
 
-    my $type = Joplin::Notebook::get_type($raw);
-    if ( $type == 1 ) {		# note
-	my $n = Joplin::Note->new;
-	$n->load( $file, $raw );
-	$nb->add($n);
-    }
-    elsif ( $type == 2 ) {	# folder
-	my $n = Joplin::Notebook->new;
-	$n->load( $file, $raw );
-	$nb->add($n);
-    }
-    elsif ( $type == 9 ) {	# master key
-    }
+    loadnote( $file, $raw );
 }
 
-use DDumper; DDumper($nb);
-
-#
-#
-#sub titlesort;
-#
-#foreach ( sort titlesort keys %$tree ) {
-#    shownote($_);
-#}
+print Joplin->top->to_string;
 
 ################ Subroutines ################
 
+my @notebjects;
+
+BEGIN {
+    @notebjects =
+      qw( Unknown Note Notebook Unknown Image
+	  Unknown Unknown Unknown Unknown Key );
+}
+
 sub loadnote {
-    my ( $file ) = @_;
-    my $fd;
-    unless ( open( $fd, '<:utf8', $file ) ) {
-	warn("$file: $!\n");
-	return;
+    my ( $file, $data ) = @_;
+
+    unless (defined $data ) {
+	my $fd;
+	unless ( open( $fd, '<:utf8', $file ) ) {
+	    warn("$file: $!\n");
+	    return;
+	}
+	$data = do { local $/; <$fd> };
     }
 
-    my $data = do { local $/; <$fd> };
     my $meta;
-    ( $data, $meta ) = $data =~ /^(.*)\n\n((?:[^\n]+\n)+[^\n]+)\z/s;
-    my $type = $1 if $meta =~ m/^type_:\s+(\d+)\z/m;
+    my $type;
+    ( $type, $data, $meta ) = Joplin::get_type($data);
     unless ( defined $type ) {
 	warn("$file: No type?\n");
 	return;
     }
 
-    my $m;
-    foreach (split( /\n/, $meta ) ) {
-	if ( /^(.*?):\s*(.*)/ ) {
-	    $m->{$1} = $2;
-	}
-    }
-    die unless $m->{type_} == $type;
-    $m->{_title} = $1 if $data =~ /^(.*)/;
-
-    if ( $type == 1 ) {		# note
-	my $parent = $m->{parent_id};
-	push( @{ $tree->{$parent}->{_children} }, { _data => $data, %$m } );
-    }
-    elsif ( $type == 2 ) {	# folder
-	my $parent = $m->{parent_id};
-	$tree->{$m->{id}}->{_data} = $data;
-	while ( my ( $k, $v ) = each(%$m) ) {
-	    $tree->{$m->{id}}->{$k} = $v;
-	}
-    }
-    else {
-	warn("$file: Unhandled type $type -- skipped\n");
+    my $handler = $notebjects[$type];
+    if ( !defined($handler) || $handler eq 'Unknown' ) {
+	warn("$file: Unhandled type [$type] -- skipped\n");
 	return;
     }
+
+    $handler = 'Joplin::' . $handler;
+    return $handler->new->load( $file, $data, $meta );
 }
 
-sub titlesort { $tree->{$a}->{_title} cmp $tree->{$b}->{_title} }
-
-sub shownote {
-    print $tree->{$_}->{_title}, "\n";
-    if ( $tree->{$_}->{_children} ) {
-	foreach ( sort { $a->{_title} cmp $b->{_title} } @{ $tree->{$_}->{_children} } ) {
-	    print $_->{_title}, "\n";
-	}
-    }
-}
+#sub titlesort { $tree->{$a}->{_title} cmp $tree->{$b}->{_title} }
+#
+#sub shownote {
+#    my ( $n ) = @_;
+#    print $tree->{$n}->{_title}, "\n";
+#    if ( $tree->{$n}->{_children} ) {
+#	foreach ( sort { $a->{_title} cmp $b->{_title} } @{ $tree->{$n}->{_children} } ) {
+#	    print $n->{_title}, "\n";
+#	}
+#    }
+#}
 
 ################ Modules ################
 
@@ -142,21 +114,84 @@ package Joplin;
 
 my $notes;
 
+sub get_type {
+    my ( $raw ) = @_;
+    my ( $data, $meta ) = $raw =~ /^(.*)\n\n((?:[^\n]+\n)+[^\n]+)\z/s;
+    my $type; ( $type ) = $meta =~ m/^type_:\s+(\d+)\z/m;
+    wantarray ? ( $type, $data, $meta ) : $type;
+}
+
+sub top { $notes->{'*top*'} }
+
 package Joplin::Base;
+
+sub new {
+    my $pkg = shift;
+    my $self = { @_ };
+    bless $self => $pkg;
+}
 
 sub id     { $_[0]->{id} }
 sub data   { $_[0]->{_data} }
 sub title  { $_[0]->{_title} }
-sub parent_id { $_[0]->{_parent_id} }
-sub parent { $notes->{$_[0]->parent_id} }
+sub type   { $_[0]->{type_} }
+sub parent_id { $_[0]->{parent_id} || '*top*' }
+sub parent {
+    my $pid = $_[0]->parent_id;
+    use DDumper;
+    unless ( $pid ) {
+	DDumper($_[0]);
+    }
+    $notes->{$pid} //= Joplin::Notebook->new;
+}
+
+sub load {
+    my ( $self, $file, $data, $meta ) = @_;
+
+    foreach (split( /\n/, $meta ) ) {
+	if ( /^(.*?):\s*(.*)/ ) {
+	    $self->{$1} = $2;
+	}
+    }
+    $self->{_title} = $1 if $data =~ /^(.*)/;
+    $self->{_data} = $data;
+    $self->{_size} = length($data);
+
+    if ( $notes->{$self->id} ) {
+	while ( my($k,$v) = each(%$self) ) {
+	    $notes->{$self->id}->{$k} = $v;
+	}
+    }
+    else {
+	$notes->{$self->id} = $self;
+    }
+
+    $self->parent->add($self);
+
+    return $self;
+}
+
+sub to_string {
+    my ( $self ) = @_;
+    my $res = ref($self);
+    $res =~ s/^.*:://;
+    $res .= ": " . $self->title;
+    $res .= " (" . $self->{_size} . " bytes)" if defined $self->{_size};
+    $res . "\n";
+}
 
 package Joplin::Notebook;
 
+use parent -norequire => Joplin::Base::;
+
 sub new {
-    my ( $pkg ) = shift;
-    my $self = { @_ };
-    $self->{_notes} //= [];
+    my ( $pkg, %init ) = @_;
+    my $self = { type_ => 2, _notes => [], %init };
     bless $self, $pkg;
+}
+
+BEGIN {
+    $notes->{'*top*'} = Joplin::Notebook->new( _title => 'Top' );
 }
 
 sub add {
@@ -169,46 +204,63 @@ sub notes {
     wantarray ? @{ $self->{_notes} } : $self->{_notes};
 }
 
-sub get_type {
-    my ( $raw ) = @_;
-    my ( $data, $meta ) = $raw =~ /^(.*)\n\n((?:[^\n]+\n)+[^\n]+)\z/s;
-    my $type; ( $type ) = $meta =~ m/^type_:\s+(\d+)\z/m;
-    warn("TYPE: $type");
-    wantarray ? ( $type, $data, $meta ) : $type;
+sub titlesort { lc($a->title) cmp lc($b->title) }
+
+sub to_string {
+    my ( $self ) = @_;
+    my $res = "  ";
+    foreach ( sort titlesort $self->notes ) {
+	$res .= $_->to_string;
+    }
+    $res =~ s/\n/\n  /g;
+    $res =~ s/\n  \z/\n/;
+    ref($self) =~ s/^.*:://r . ": " . $self->title . "\n" . $res;
 }
 
 package Joplin::Note;
 
-our @ISA = ( 'Joplin::Base' );
+use parent -norequire => Joplin::Base::;
 
 sub new {
-    my ( $pkg ) = shift;
-    my $self = { @_ };
-    bless $self, $pkg;
-}
-
-sub load {
-    my ( $self, $file, $raw ) = @_;
-
-    my ( $type, $data, $meta ) = Joplin::Notebook::get_type($raw);
-    unless ( defined $type ) {
-	warn("$file: No type?\n");
-	return;
-    }
-
-    foreach (split( /\n/, $meta ) ) {
-	if ( /^(.*?):\s*(.*)/ ) {
-	    $self->{$1} = $2;
-	}
-    }
-    die unless $self->{type_} == $type;
-    $self->{_title} = $1 if $data =~ /^(.*)/;
-    $self->{_data} = $data;
+    shift->SUPER::new( _type => 1 );
 }
 
 package Joplin::Folder;
 
-our @ISA = ( 'Joplin::Base' );
+use parent -norequire => Joplin::Base::;
+
+sub new {
+    shift->SUPER::new( _type => 2 );
+}
+
+package Joplin::Image;
+
+use parent -norequire => Joplin::Base::;
+
+sub new {
+    shift->SUPER::new( _type => 4 );
+}
+
+sub load {
+    my ( $self, $file, $data, $meta ) = @_;
+    $self->SUPER::load( $file, $data, $meta );
+    my $res = $file;
+    $res =~ s;(/[0-9a-f]{32})\.md$;/.resource$1;;
+    unless ( -e $res ) {
+	warn("$file: No resource [$res]?\n");
+    }
+    else {
+	$self->{_resource} = $res;
+    }
+    return $self;
+}
+
+sub to_string {
+    my ( $self ) = @_;
+    my $res = ref($self) =~ s/^.*:://r . ": ";
+    $res .= $self->{mime} . " (" . (-s $self->{_resource}) . " bytes)\n";
+    return $res;
+}
 
 package main;
 
