@@ -3,8 +3,8 @@
 # Author          : Johan Vromans
 # Created On      : Mon Sep  3 10:45:33 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Thu Sep 27 20:40:23 2018
-# Update Count    : 47
+# Last Modified On: Wed Jan  2 21:22:06 2019
+# Update Count    : 86
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -16,7 +16,7 @@ use Encode;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( addnote_cloud 0.02 );
+my ($my_name, $my_version) = qw( addnote_cloud 0.03 );
 
 ################ Command line parameters ################
 
@@ -27,6 +27,7 @@ my $dir = "/home/jv/Cloud/ownCloud/Notes/Joplin";
 my $folder;
 my $title;
 my $parent;
+my @tags;
 my $verbose = 1;		# verbose processing
 
 # Development options (not shown with -help).
@@ -46,23 +47,46 @@ my $TMPDIR = $ENV{TMPDIR} || $ENV{TEMP} || '/usr/tmp';
 
 ################ The Process ################
 
-my $id = uuid();
 my @tm = gmtime;
 my $ts = sprintf( "%04d-%02d-%02dT%02d:%02d:%02d.000Z",
 		  1900+$tm[5], 1+$tm[4], @tm[3,2,1,0] );
 my $author = (getpwuid($<))[6];
-my $data;
-my $meta;
-my $type;
-
-$parent = find_folder( $parent, $dir );
 
 if ( $folder ) {
-    die("Folder needs title id!\n") unless $title;
-    $type = 2;
-    $data = $title;
+    make_folder( $parent, $title );
+}
+else {
+    my $file = $ARGV[0];
+
+    my $id;
+    if ( $file =~ /\.(jpe?g|gif|png)$/ ) {			# image
+	$id = make_resource( $parent, $title );
+    }
+    else {
+	$id = make_note( $parent, $title );
+    }
+
+    if ( $id && @tags ) {
+	foreach my $tag ( @tags ) {
+	    my $tag_id = make_tag( $tag );
+	    add_tag( $id, $tag_id );
+	}
+    }
+}
+
+################ Subroutines ################
+
+sub make_folder {
+    my ( $parent, $title ) = @_;
+    $parent = find_folder( $parent );
     $parent //= "";
-    $meta = <<EOD;
+    my $id = uuid();
+
+    die("Folder needs title id!\n") unless $title;
+    my $content = { id     => $id,
+		    type   => 2,
+		    data   => $title,
+		    meta   => <<EOD };
 id: $id
 parent_id: 
 created_time: $ts
@@ -72,51 +96,27 @@ user_updated_time: $ts
 encryption_cipher_text: 
 encryption_applied: 0
 EOD
-}
-elsif ( 0 ) {			# image
-    die("Note needs parent id!\n") unless $parent;
 
-    $type = 4;
-    $data = shift(@ARGV);
+    store( $content );
+    print STDOUT ( $id, "\n" ) if $verbose;
+    $id;
+}
 
-    $meta = <<EOD;
-id: $id
-mime: image/jpeg
-filename:
-file_extension: jpeg
-parent_id: $parent
-created_time: $ts
-updated_time: $ts
-user_created_time: $ts
-user_updated_time: $ts
-encryption_cipher_text: 
-encryption_applied: 0
-encryption_blob_encrypted: 0
-EOD
-}
-elsif ( 0 ) {			# key
-    $type = 9;
-    $meta = <<EOD;
-id: $id
-created_time: $ts
-updated_time: $ts
-source_application: net.cozic.joplin-desktop
-encryption_method: 2
-checksum: ...64 hex chars ...
-content: { ... }
-EOD
-}
-else {
-    $type = 1;
+sub make_note {
+    my ( $parent, $title ) = @_;
+    $parent = find_folder( $parent );
+    my $id = uuid();
+
+    my $content = { id => $id, type => 1 };
     if ( @ARGV && !$title ) {
 	( $title = $ARGV[0] ) =~ s;^.*/;;
     }
-    $data = do { local $/; <> };
+    my $data = do { local $/; <> };
     if ( $title ) {
 	$data = $title . "\n\n". $data;
     }
-
-    $meta = <<EOD;
+    $content->{data} = $data;
+    $content->{meta} = <<EOD;
 id: $id
 parent_id: $parent
 created_time: $ts
@@ -139,25 +139,124 @@ user_updated_time: $ts
 encryption_cipher_text: 
 encryption_applied: 0
 EOD
+
+    store( $content );
+    print STDOUT ( $id, "\n" ) if $verbose;
+    $id;
 }
 
-my $fd;
-open( $fd, '>', "$dir/$id.md" );
-print $fd ( $data, "\n\n" ) if defined $data;
-print $fd ( encode_utf8($meta), "type_: $type" );
-close($fd);
+sub make_resource {
+    my ( $parent, $title ) = @_;
+    $parent = find_folder( $parent );
+    my $id = uuid();
 
-if ( $type == 4 ) {
-    # TODO: copy data file to .resource
-    ...
+    die("Resource needs parent id!\n") unless $parent;
+
+    my $content = { id   => $id,
+		    type => 4,
+		    data => shift(@ARGV),
+		    meta => <<EOD };
+id: $id
+mime: image/jpeg
+filename:
+file_extension: jpeg
+parent_id: $parent
+created_time: $ts
+updated_time: $ts
+user_created_time: $ts
+user_updated_time: $ts
+encryption_cipher_text: 
+encryption_applied: 0
+encryption_blob_encrypted: 0
+EOD
+
+    store( $content );
+    print STDOUT ( $id, "\n" ) if $verbose;
+    $id
 }
 
-print STDOUT ($id, "\n") if $verbose;
+sub make_tag {
+    my ( $tag ) = @_;
 
-################ Subroutines ################
+    my $id = find_tag($tag);
+    return $id if $id;
+
+    $id = uuid();
+    my $content = { id   => $id,
+		    type => 5,
+		    data => $tag,
+		    meta => <<EOD };
+id: $id
+created_time: $ts
+updated_time: $ts
+user_created_time: $ts
+user_updated_time: $ts
+encryption_cipher_text: 
+encryption_applied: 0
+EOD
+
+    store( $content );
+    print STDOUT ( $id, "\n" ) if $verbose;
+    $id
+}
+
+sub add_tag {
+    my ( $note_id, $tag_id ) = @_;
+    my $id = uuid();
+
+    my $content = { id   => $id,
+		    type => 6,
+		    meta => <<EOD };
+id: $id
+note_id: $note_id
+tag_id: $tag_id
+created_time: $ts
+updated_time: $ts
+user_created_time: $ts
+user_updated_time: $ts
+encryption_cipher_text: 
+encryption_applied: 0
+EOD
+
+    store( $content );
+    print STDOUT ( $id, "\n" ) if $verbose;
+    $id
+}
+
+sub make_key {
+    my ( $title ) = @_;
+    my $id = uuid();
+
+    my $content = { id   => $id,
+		    type => 9,
+		    meta => <<EOD };
+id: $id
+created_time: $ts
+updated_time: $ts
+source_application: net.cozic.joplin-desktop
+encryption_method: 2
+checksum: ...64 hex chars ...
+content: { ... }
+EOD
+
+    store( $content );
+    print STDOUT ( $id, "\n" ) if $verbose;
+    $id
+}
+
+sub store {
+    my ( $content ) = @_;
+    my $fd;
+    open( $fd, '>:raw', "$dir/" . $content->{id} . ".md" );
+    print $fd ( $content->{data}, "\n\n" ) if defined $content->{data};
+    print $fd ( encode_utf8($content->{meta}),
+		"type_: ", $content->{type} );
+    close($fd);
+
+}
 
 sub find_folder {
-    my ( $pat, $dir ) = @_;
+    my ( $pat ) = @_;
 
     my @files = glob("$dir/????????????????????????????????.md");
 
@@ -192,6 +291,39 @@ sub _find_folder {
     return;
 }
 
+sub find_tag {
+    my ( $pat ) = @_;
+
+    my @files = glob("$dir/????????????????????????????????.md");
+    my $id;
+
+    if ( $pat =~ m;^/(.*); ) {
+	$pat = $1;
+    }
+    else {
+	$pat = qr/^.*$pat/i;	# case insens substr
+    }
+    return _find_tag( $pat, \@files );
+}
+
+sub _find_tag {
+    my ( $pat, $files ) = @_;
+
+    foreach ( @$files ) {
+	open( my $fd, '<', "$_" ) or die("$_: $!\n");
+	my $data = do { local $/; <$fd> };
+	close($fd);
+
+	if ( $data =~ /^type_: 5\z/m
+	     && $data =~ $pat
+	     && $data =~ /^id:\s*(.{32})$/m
+	   ) {
+	    return $1
+	}
+    }
+    return;
+}
+
 sub uuid {
     my $uuid = "";
     $uuid .= sprintf("%04x", rand() * 0xffff) for 1..8;
@@ -204,6 +336,7 @@ sub app_options {
     my $help = 0;		# handled locally
     my $ident = 0;		# handled locally
     my $man = 0;		# handled locally
+    my @t;			# tags
 
     my $pod2usage = sub {
         # Load Pod::Usage only if needed.
@@ -217,6 +350,7 @@ sub app_options {
 	GetOptions('parent=s'	=> \$parent,
 		   'title=s'	=> \$title,
 		   'folder'	=> \$folder,
+		   'tags=s@'	=> \@t,
 		   'dir=s'	=> \$dir,
 		   'ident'	=> \$ident,
 		   'verbose+'	=> \$verbose,
@@ -233,6 +367,10 @@ sub app_options {
     if ( $man or $help ) {
 	$pod2usage->(1) if $help;
 	$pod2usage->(VERBOSE => 2) if $man;
+    }
+    die("Folders cannot have tags\n") if $folder && @t;
+    foreach ( @t ) {
+	push( @tags, split(/,\s*/, $_) );
     }
 }
 
@@ -253,6 +391,7 @@ makenote [options] [file ...]
    --folder		create folder
    --title=XXX		title (optional)
    --dir=XXX		where the joplin notes reside
+   --tag=YYY		tags or tag ids
    --ident		shows identification
    --quiet		runs quietly
    --help		shows a brief help message and exits
@@ -285,6 +424,13 @@ Note that this requires a valid <--dir> location.
 The location where the Joplin notes reside. Note this is only used to
 find folder ids when the B<--parent> option specifies a search
 argument.
+
+=item B<--tag=>I<XXX>    B<--tags=>I<XXX,YYY>
+
+Specifies one or more tags to be associated with this note. Multiple
+options may be used to specify multiple tags.
+
+The tag is either an existing tag, a new tag, or the id of an existing tag.
 
 =item B<--title=>I<XXX>
 
