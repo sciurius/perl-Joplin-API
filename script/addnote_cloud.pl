@@ -3,8 +3,8 @@
 # Author          : Johan Vromans
 # Created On      : Mon Sep  3 10:45:33 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Wed Jan  2 21:22:06 2019
-# Update Count    : 86
+# Last Modified On: Sun Jan  6 20:24:37 2019
+# Update Count    : 92
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -16,7 +16,7 @@ use Encode;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( addnote_cloud 0.03 );
+my ($my_name, $my_version) = qw( addnote_cloud 0.04 );
 
 ################ Command line parameters ################
 
@@ -152,14 +152,30 @@ sub make_resource {
 
     die("Resource needs parent id!\n") unless $parent;
 
+    my $mime = "jpeg";
+    my $rsc = shift(@ARGV);
+
+    if ( $rsc =~ /\.jpe?g/$ ) {
+	$mime = "jpeg";
+    }
+    elsif ( $rsc =~ /\.png/$ ) {
+	$mime = "png";
+    }
+    elsif ( $rsc =~ /\.gif/$ ) {
+	$mime = "gif";
+    }
+    else {
+	die("Unhandled resource type, must be jpg, png or gif\n");
+    }
+
     my $content = { id   => $id,
 		    type => 4,
-		    data => shift(@ARGV),
+		    data => $rsc,
 		    meta => <<EOD };
 id: $id
-mime: image/jpeg
+mime: image/$mime
 filename:
-file_extension: jpeg
+file_extension: $mime
 parent_id: $parent
 created_time: $ts
 updated_time: $ts
@@ -172,6 +188,26 @@ EOD
 
     store( $content );
     print STDOUT ( $id, "\n" ) if $verbose;
+
+    # Copy the resource into the .resource folder.
+
+    my $rscdir = "$dir/.resource";
+    mkdir($rscdir) unless -d $rscdir;
+
+    use Fcntl;
+    sysopen( my $src, $rsc, O_RDONLY )
+      or die( $content->{data}, ": $!\n");
+    sysopen( my $dst, "$rscdir/$id", O_WRONLY|O_CREAT )
+      or die( "$rscdir/$id: $!\n" );
+
+    my $buf = "";
+    while ( ( my $n = sysread( $src, $buf, 10240 ) ) > 0 ) {
+	syswrite( $dst, $buf, $n );
+    }
+
+    close($src);
+    close($dst);
+
     $id
 }
 
