@@ -24,7 +24,7 @@ SKIP: {
     ok( $tid, "Create tag $tname" );
     $tid = $tid->{id};
 
-    $res = $api->find_tags( qr/^$tname$/i ) // [];
+    $res = $api->find_tags( qr/^$tname$/i );
     ok( $res, "Found " . scalar(@$res) . " tags" );
     is( $res->[0]->{id}, $tid, "Found tag $tname" );
     is( $res->[0]->{title}, lc($tname), "It's $tname" );

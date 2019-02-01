@@ -302,7 +302,6 @@ Returns true if successful.
 sub delete_folder {
     my ( $self, $folder_id ) = @_;
     $self->query( "delete", "/folders/$folder_id" );
-    return 1;
 }
 
 =head2 find_folders
@@ -315,8 +314,7 @@ The argument C<$pattern> must be a string or a pattern. If a string,
 it performs a case insensitive substring search on the name of the
 folder. A pattern can be used for more complex matches.
 
-Returns an array of hashes with folder info if successful. Otherwise
-returns undef.
+Returns a (possibly empty) array of hashes with folder info if successful.
 
 =cut
 
@@ -338,7 +336,7 @@ sub find_folders {
 sub __find_folders {
     my ( $self, $pat, $folders ) = @_;
     my @res;
-    foreach my $folder ( grep { $_->{type_} == 2 } @$folders ) {
+    foreach my $folder ( @$folders ) {
 	if ( exists $folder->{children} ) {
 	    my $folders = $self->__find_folders( $pat, $folder->{children} );
 	    if ( $folders ) {
@@ -475,10 +473,6 @@ The name of the note's author.
 
 The source URL for the note, if any.
 
-=item tags
-
-A list of comma separated tag names.
-
 =item is_todo
 
 The note is a TODO.
@@ -503,9 +497,12 @@ sub update_note {
     my ( $self, $note_id, %args ) = @_;
     my $data = {};
     for ( qw( title body parent_id author source_url
-	      tags is_todo todo_due todo_completed ) ) {
-	$data->{$_} = $args{$_} if exists $args{$_};
+	      is_todo todo_due todo_completed ) ) {
+	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
+    croak( "Joplin: Unhandled properties in update_note: " .
+	   join(" ", sort keys %args) ) if %args;
+    # Only works with put.
     $self->query( "put", "/notes/$note_id", $data );
 }
 
@@ -522,8 +519,27 @@ Returns true if successful.
 sub delete_note {
     my ( $self, $note_id ) = @_;
     $self->query( "delete", "/notes/$note_id" );
-    return 1;
 }
+
+=head2 find_notes
+
+Finds notes by name.
+
+    $res = $api->find_notes($pattern);
+
+The argument C<$pattern> must be a string or a pattern. If a string,
+it performs a case insensitive substring search on the name of the
+note. A pattern can be used for more complex matches.
+
+Returns a (possibly empty) array of hashes with note info if successful.
+
+=cut
+
+sub find_notes {
+    splice( @_, 1, 0, "notes" );
+    goto &_find_internal;
+}
+
 
 ################ Tags ################
 
@@ -531,19 +547,11 @@ sub delete_note {
 
 =head2 get_tag
 
-=head2 set_tag
+Gets the data for a specific tag.
 
-=head2 create_tag
+    $res = $api->get_tag($tag_id);
 
-=head2 update_tag
-
-=head2 delete_tag
-
-=head2 get_tag_notes
-
-=head2 create_tag_notes
-
-=head2 delete_tag_notes
+Returns a hash with tag properties.
 
 =cut
 
@@ -552,10 +560,30 @@ sub get_tag {
     $self->query( "get", "/tags/$tag_id" );
 }
 
+=head2 get_tags
+
+Returns an array of data for all tags.
+
+    $res = $api->get_tags;
+
+Each element is a hash with tag properties.
+
+=cut
+
 sub get_tags {
     my ( $self ) = @_;
     $self->query( "get", "/tags" );
 }
+
+=head2 create_tag
+
+Creates a new tag. Note that Joplin downcases tag titles.
+
+    $res = $api->create_tag($title);
+
+Returns a hash with tag properties.
+
+=cut
 
 sub create_tag {
     my ( $self, $title ) = @_;
@@ -564,51 +592,103 @@ sub create_tag {
     $self->query( "post", "/tags", $data );
 }
 
+=head2 update_tag
+
+Updates the title for a specific tag.
+
+    $res = $api->update_tag($tag_id);
+
+Returns a hash with updated tag properties.
+
+=cut
+
 sub update_tag {
     my ( $self, $tag_id, $title ) = @_;
     my $data = { title => lc $title };
     $self->query( "put", "/tags/$tag_id", $data );
 }
 
+=head2 delete_tag
+
+Deletes a specific tag.
+
+   $res = $api->delete_tag($tag_id);
+
+Returns true if successful.
+
+=cut
+
 sub delete_tag {
     my ( $self, $tag_id ) = @_;
     $self->query( "delete", "/tags/$tag_id" );
-    return 1;
 }
+
+=head2 get_tag_notes
+
+Returns an array with data for all notes that have a specific tag.
+
+    $res = $api->get_tag_notes($tag_id);
+
+Each element is a hash with note properties.
+
+=cut
 
 sub get_tag_notes {
     my ( $self, $note_id ) = @_;
     $self->query( "get", "/tags/$note_id/notes" );
 }
 
-sub create_tag_notes {
-    my ( $self, $note_id, $tag ) = @_;
-    my $data = { title => lc $tag };
-    $self->query( "post", "/tags/$note_id/notes", $data );
+=head2 create_tag_note
+
+Associate a tag with a note.
+
+    $res = $api->create_tag_note( $tag_id, $note_id );
+
+Returns a hash describing the link between the tag and the note.
+
+=cut
+
+sub create_tag_note {
+    my ( $self, $tag_id, $note_id ) = @_;
+    my $data = { id => $note_id };
+    $self->query( "post", "/tags/$tag_id/notes", $data );
 }
 
-sub delete_tag_notes {
+=head2 delete_tag_note
+
+Deletes the association of the tag with the note.
+
+    $res = $api->delete_tag_note( $tag_id, $note_id );
+
+Returns true if successful.
+
+=cut
+
+sub delete_tag_note {
     my ( $self, $tag_id, $note_id ) = @_;
-    ...;
-    return 1;
+    $self->query( "delete", "/tags/$tag_id/notes/$note_id" );
 }
+
+=head2 find_tags
+
+Finds tags by name.
+
+    $res = $api->find_tags($pattern);
+
+The argument C<$pattern> must be a string or a pattern. If a string,
+it performs a case insensitive substring search on the name of the
+tag. A pattern can be used for more complex matches.
+
+Note that tag names (titles) are downcased by Joplin. Searching with a
+pattern that requires uppercase characters will never succeed.
+
+Returns a (possibly empty) array of hashes with tag info if successful.
+
+=cut
 
 sub find_tags {
-    croak("Joplin find_tags requires an argument") unless @_ == 2;
-    my ( $self, $pat ) = @_;
-
-    my $tags = $self->get_tags;
-
-    unless ( ref($pat) && ref($pat) eq "Regexp" ) {
-	$pat = qr/^.*$pat/i;	# case insens substr
-    }
-
-    my @res;
-    foreach my $tag ( grep { $_->{type_} == 5 } @$tags ) {
-	push( @res, { %$tag } ) if $tag->{title} =~ $pat;
-    }
-
-    return @res ? \@res : undef;
+    splice( @_, 1, 0, "tags" );
+    goto &_find_internal;
 }
 
 ################ Resources ################
@@ -617,15 +697,11 @@ sub find_tags {
 
 =head2 get_resource
 
-=head2 get_resources
+Gets info for a specific resource.
 
-=head2 create_resource
+    $res = $api->get_resource($res_id);
 
-=head2 update_resource
-
-=head2 download_resource
-
-=head2 delete_resource
+Returns a hash with resource properties.
 
 =cut
 
@@ -634,39 +710,124 @@ sub get_resource {
     $self->query( "get", "/resources/$resource_id" );
 }
 
+=head2 get_resources
+
+Returns an array with info for all resources.
+
+    $res = $api->get_resources;
+
+Each element is a hash with resource properties.
+
+=cut
+
 sub get_resources {
     my ( $self ) = @_;
     $self->query( "get", "/resources" );
 }
 
+=head2 create_resource
+
+Creates a new resource.
+
+    $res = $api->create_resource( $file, title => $title );
+
+The named file must be accessible and its content will be copied to
+the resource.
+
+Properties:
+
+=over 4
+
+=item title
+
+The title for this resource. Defaults to the file name.
+
+=item mime
+
+The mime type for this resource. A suitable default will be guessed.
+
+=back
+
+Returns the properties for the new resource.
+
+=cut
+
 sub create_resource {
     my ( $self, $file, %args ) = @_;
-    my $data = { filename => $file };
+
+    croak("Joplin: Resource $file not found")
+      unless -e -s -r $file;
+
+    my $data = { props => { title => $file } };
     for ( qw( title mime ) ) {
-	$data->{$_} = $args{$_} if exists $args{$_};
+	$data->{props}->{$_} = delete $args{$_} if exists $args{$_};
     }
 
-    $self->query( "post", "/resources", $data );
+    $data->{data} = $file;
+
+    $self->query( "post+", "/resources", $data );
 }
+
+=head2 update_resource
+
+Updates the properties of the resource.
+
+    $res = $api->update_resource( $res_id, title => $title );
+
+Properties:
+
+=over 4
+
+=item title
+
+The new title for the resource.
+
+=back
+
+Returns a hash with updated properties.
+
+=cut
 
 sub update_resource {
     my ( $self, $resource_id, %args ) = @_;
     my $data = {};
     for ( qw( title mime ) ) {
-	$data->{$_} = $args{$_} if exists $args{$_};
+	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
+    croak( "Joplin: Unhandled properties in update_resource: " .
+	   join(" ", sort keys %args) ) if %args;
+
     $self->query( "put", "/resources/$resource_id", $data );
 }
 
-sub download_resource {
+=head2 fetch_resource
+
+Fetches a resource.
+
+   $data = $api->fetch_resource($res_id);
+
+Returns the raw data for the resource if successful.
+
+=cut
+
+sub fetch_resource {
     my ( $self, $resource_id ) = @_;
-    $self->query( "get", "/resources/$resource_id/file" );
+    $self->query( "fetch", "/resources/$resource_id/file" );
 }
+
+=head2 delete_resource
+
+Deletes a resource.
+
+    $res = $api->delete_resource($res_id);
+
+Returns true if successful.
+
+=cut
 
 sub delete_resource {
     my ( $self, $resource_id ) = @_;
     $self->query( "delete", "/resources/$resource_id" );
-    return 1;
 }
 
 ################ Low level ################
@@ -706,6 +867,8 @@ sub query {
 	$method = "get";
 	$path = "/ping";
     }
+    my $fetch = $method eq "fetch";
+    $method = "get" if $fetch;
 
     croak("Joplin: Unsupported query path: $path")
       unless $path =~ m;^/(?:notes|folders|tags|resources|ping)(?:/|$);;
@@ -722,7 +885,7 @@ sub query {
     if    ( $method eq "get" || $method eq "delete" ) {
 	croak("Joplin: $method query doesn't take data") if $data;
 	$res = $ua->$method($path);
-	if ( $ping ) {
+	if ( $ping || $fetch ) {
 	    return undef unless $res->is_success;
 	    return $res->decoded_content;
 	}
@@ -730,6 +893,14 @@ sub query {
     elsif ( $method eq "put" || $method eq "post" ) {
 	croak("Joplin: $method query requires data") unless $data;
 	$res = $ua->$method( $path, Content => $pp->encode($data) );
+    }
+    elsif ( $method eq "post+" ) {
+	croak("Joplin: $method query requires data") unless $data;
+	$res = $ua->post( $path,
+			  Content_Type => 'form-data',
+			  Content => [ data => [ $data->{data} ],
+				       props => $pp->encode($data->{props}),
+				     ] );
     }
     else {
 	croak("Joplin: Unsupported query method: $method");
@@ -741,6 +912,23 @@ sub query {
 	croak( "Joplin: " . $res->status_line )
     }
     return $pp->decode($res->decoded_content);
+}
+
+sub _find_internal {
+    my ( $self, $what, $pat ) = @_;
+    croak("Joplin: find_$what requires an argument") unless defined $pat;
+    $what = "get_$what";
+
+    unless ( ref($pat) && ref($pat) eq "Regexp" ) {
+	$pat = qr/^.*$pat/i;	# case insens substr
+    }
+
+    my @res;
+    foreach my $item ( @{ $self->$what } ) {
+	push( @res, { %$item } ) if $item->{title} =~ $pat;
+    }
+
+    return \@res;
 }
 
 =head1 LICENSE

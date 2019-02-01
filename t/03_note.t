@@ -23,7 +23,6 @@ SKIP: {
     my $fname = "TestFolder$$";
     my $fid = $api->create_folder($fname);
     $fid = $fid->{id};
-    diag("Created folder $fname");
 
     my $nname = "TestNote$$";
     my $nid = $api->create_note( $nname,
@@ -33,10 +32,15 @@ SKIP: {
     $nid = $nid->{id};
     ok( $nid, "Created note $nname" );
 
+    $res = $api->find_notes( qr/^$nname$/ );
+    is( $res->[0]->{id}, $nid, "Found the note" );
+
+    $res = $api->get_folder_notes($fid);
+    is( $res->[0]->{id}, $nid, "Found the note" );
+
     ok( $api->delete_note($nid),   "Delete note $nname" );
 
     $api->delete_folder($fid);
-    diag("Deleted folder $fname");
 }
 
 done_testing();

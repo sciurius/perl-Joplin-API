@@ -31,6 +31,9 @@ SKIP: {
     $res = $api->get_folders;
     is( scalar(@$res), 1+$nfolders, "Got " . scalar(@$res) . " folders" );
 
+    $res = $api->get_folder($fid);
+    is( $res->{id}, $fid, "Found folder" );
+
     $res = $api->find_folders($fname);
     ok( $res, "Found " . scalar(@$res) . " folders" );
     is( $res->[0]->{id}, $fid, "Found folder $fname" );

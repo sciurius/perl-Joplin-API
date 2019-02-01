@@ -29,20 +29,22 @@ SKIP: {
 				 $fid,
 			       );
     $nid = $nid->{id};
-    diag("Created folder $fname and note $nname" );
 
     $res = $api->update_note( $nid,
+			      title => "♫ ♫ ♫",
 			      body => "Updated content",
 			    );
     ok( $res, "Update note" );
     is( $res->{body}, "Updated content", "Update note contents" );
+
+    $res = $api->find_notes( qr/^♫ ♫ ♫$/ );
+    is( $res->[0]->{id}, $nid, "Found the note" );
 
     $res = $api->get_note($nid);
     is( $res->{body}, "Updated content", "Updated note contents" );
 
     $api->delete_note($nid);
     $api->delete_folder($fid);
-    diag("Deleted note $nname and folder $fname");
 }
 
 done_testing();

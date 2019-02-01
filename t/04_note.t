@@ -22,7 +22,6 @@ SKIP: {
     my $fname = "TestFolder$$";
     my $fid = $api->create_folder($fname);
     $fid = $fid->{id};
-    diag("Created folder $fname");
 
     my $nid = $api->create_note( "TestNote$$",
 				 "Hi from testing",
@@ -33,7 +32,6 @@ SKIP: {
     ok( $nid, "Create note" );
 
     my $tags = $api->get_note_tags($nid);
-    $tags //= [];
     is( @$tags, 2, "Got " . scalar(@$tags) . " tags" );
 
     for ( @$tags ) {
@@ -43,7 +41,6 @@ SKIP: {
     ok( $api->delete_note($nid),   "Delete note" );
 
     $api->delete_folder($fid);
-    diag("Deleted folder $fname");
 }
 
 done_testing();
