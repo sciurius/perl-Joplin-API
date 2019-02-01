@@ -1,0 +1,16 @@
+cloud/addnote.pl
+cloud/picklist.pl
+cloud/shownotes.pl
+lib/Joplin/API.pm
+Makefile
+Makefile.PL
+README.md
+script/addnote.pl
+script/pp.PL
+t/00_load.t
+t/01_basic.t
+t/02_folder.t
+t/03_note.t
+t/04_note.t
+t/05_note.t
+t/joplin.dat

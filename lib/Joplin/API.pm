@@ -704,7 +704,10 @@ sub query {
     if    ( $method eq "get" || $method eq "delete" ) {
 	croak("Joplin: $method query doesn't take data") if $data;
 	$res = $ua->$method($path);
-	return $res->is_success if $ping;
+	if ( $ping ) {
+	    return undef unless $res->is_success;
+	    return $res->decoded_content;
+	}
     }
     elsif ( $method eq "put" || $method eq "post" ) {
 	croak("Joplin: $method query requires data") unless $data;
