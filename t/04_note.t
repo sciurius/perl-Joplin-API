@@ -33,6 +33,7 @@ SKIP: {
     ok( $nid, "Create note" );
 
     my $tags = $api->get_note_tags($nid);
+    $tags //= [];
     is( @$tags, 2, "Got " . scalar(@$tags) . " tags" );
 
     for ( @$tags ) {

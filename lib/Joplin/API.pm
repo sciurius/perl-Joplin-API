@@ -559,14 +559,14 @@ sub get_tags {
 
 sub create_tag {
     my ( $self, $title ) = @_;
-    my $data = { title => $title };
+    my $data = { title => lc $title };
 
     $self->query( "post", "/tags", $data );
 }
 
 sub update_tag {
     my ( $self, $tag_id, $title ) = @_;
-    my $data = { title => $title };
+    my $data = { title => lc $title };
     $self->query( "put", "/tags/$tag_id", $data );
 }
 
@@ -583,7 +583,7 @@ sub get_tag_notes {
 
 sub create_tag_notes {
     my ( $self, $note_id, $tag ) = @_;
-    my $data = { title => $tag };
+    my $data = { title => lc $tag };
     $self->query( "post", "/tags/$note_id/notes", $data );
 }
 
@@ -591,6 +591,24 @@ sub delete_tag_notes {
     my ( $self, $tag_id, $note_id ) = @_;
     ...;
     return 1;
+}
+
+sub find_tags {
+    croak("Joplin find_tags requires an argument") unless @_ == 2;
+    my ( $self, $pat ) = @_;
+
+    my $tags = $self->get_tags;
+
+    unless ( ref($pat) && ref($pat) eq "Regexp" ) {
+	$pat = qr/^.*$pat/i;	# case insens substr
+    }
+
+    my @res;
+    foreach my $tag ( grep { $_->{type_} == 5 } @$tags ) {
+	push( @res, { %$tag } ) if $tag->{title} =~ $pat;
+    }
+
+    return @res ? \@res : undef;
 }
 
 ################ Resources ################

@@ -13,4 +13,5 @@ t/02_folder.t
 t/03_note.t
 t/04_note.t
 t/05_note.t
+t/06_tags.t
 t/joplin.dat
