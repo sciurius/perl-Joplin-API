@@ -1,0 +1,13 @@
+#! perl
+
+$init{host}  = "localhost";
+$init{port}  = 41184;
+$init{token} = "";	# YOUR TOKEN HERE
+
+# This is for my convenience and won't work for you.
+if ( !$init{token} && eval { require ResInfo } ) {
+    $init{host}   = ResInfo::resinfo("joplin.host");
+    $init{port}   = ResInfo::resinfo("joplin.port");
+    $init{token}  = ResInfo::resinfo("joplin.apikey");
+}
+

@@ -7,8 +7,8 @@
 # Author          : Johan Vromans
 # Created On      : Wed Sep  5 13:44:45 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Mon Oct  1 16:01:28 2018
-# Update Count    : 112
+# Last Modified On: Fri Feb  1 10:31:06 2019
+# Update Count    : 124
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -16,11 +16,12 @@
 use strict;
 use warnings;
 use Encode;
+use Joplin::API;
 
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( addnote 0.03 );
+my ($my_name, $my_version) = qw( addnote 0.04 );
 
 ################ Command line parameters ################
 
@@ -28,9 +29,8 @@ use Getopt::Long 2.13;
 
 # Command line options.
 my $title;
-my $parent;
-my $host = "http://127.0.0.1";
-my $port;
+my $parent = "Imported Notes";
+my $server = "http://127.0.0.1:41184";
 my $verbose = 1;		# verbose processing
 
 # Run Joplin and copy the token from the Web Clipper options page.
@@ -60,9 +60,10 @@ my $ua = LWP::UserAgent->new;
 
 my $author = (getpwuid($<))[6];
 
-# Find port, in case it differs from default.
-$port ||= find_port();
-$parent = find_folder($parent);
+my $api = Joplin::API->new( server => $server, token => $token );
+my $pid = $api->find_folders( qr/^$parent$/ );
+die("No parent folder \"$parent\" found\n") unless $pid;
+$pid = $pid->[0]->{id};
 
 my $data;
 my $file = $ARGV[0];
@@ -71,7 +72,7 @@ if ( defined($file) && !$title ) {
     ( $title = $file ) =~ s;^.*/;;
 }
 
-my $content = { parent_id  => $parent,
+my $content = { parent_id  => $pid,
 		title      => $title,
 		defined($file) ? ( source_url => $file ) : (),
 		author     => $author,
@@ -115,65 +116,12 @@ else {
     }
 }
 
-my $res = $ua->post( "$host:$port/notes?token=$token",
-		     Content => $pp->encode($content) );
-unless ( $res->is_success ) {
-    die( $res->status_line );
-}
+my $res = $api->create_note( $content->{title},
+			     $content->{body},
+			     $content->{parent_id},
+			     %$content );
 
-################ Subroutines ################
-
-sub find_port {
-    $ua->timeout(1);
-    for ( 41184 .. 41194 ) {
-	my $res = $ua->get("$host:$_/ping");
-	if ( $res->is_success ) {
-	    return $_;
-	}
-    }
-    die("Cannot find the Joplin server. Is it running?\n");
-}
-
-sub find_folder {
-    my ( $pat ) = @_;
-
-    $ua->timeout(3);
-    my $res = $ua->get("$host:$port/folders?token=$token");
-    unless ( $res->is_success ) {
-	die( $res->status_line );
-    }
-    my $folders = $pp->decode( $res->decoded_content );
-
-    my $folder;
-    if ( $pat ) {
-	if ( $pat =~ m;^/(.*); ) {
-	    $pat = $1;
-	}
-	else {
-	    $pat = qr/^.*$pat/i;	# case insens substr
-	}
-	$folder = _find_folder( $pat, $folders );
-    }
-
-    return $folder || _find_folder( "Imported Notes", $folders );
-}
-
-sub _find_folder {
-    my ( $pat, $folders ) = @_;
-    my $folder;
-    foreach ( @$folders ) {
-	next unless $_->{type_} == 2;
-	if ( exists $_->{children} ) {
-	    $folder = _find_folder( $pat, $_->{children} );
-	    return $folder if $folder;
-	}
-	next unless $_->{title} =~ $pat;
-	$folder = $_->{id};
-	last;
-    }
-
-    return $folder;
-}
+use DDumper; DDumper $res;
 
 ################ Subroutines ################
 
@@ -193,8 +141,7 @@ sub app_options {
     if ( @ARGV > 0 ) {
 	GetOptions('parent=s'	=> sub { $parent = decode_utf8($_[1]) },
 		   'title=s'	=> sub { $title  = decode_utf8($_[1]) },
-		   'host=s'	=> sub { $host   = decode_utf8($_[1]) },
-		   'port=i'	=> \$port,
+		   'server=s'	=> sub { $server = decode_utf8($_[1]) },
 		   'token=s'	=> \$token,
 		   'ident'	=> \$ident,
 		   'verbose+'	=> \$verbose,
@@ -229,8 +176,7 @@ makenote [options] [file ...]
  Options:
    --parent=XXX		note parent (defaults to "Imported Notes")
    --title=XXX		title (optional)
-   --host=XXX		the host running the Joplin server
-   --port=NNN		Joplin server port, if not default
+   --server=XXX		the host running the Joplin server
    --token=XXX		Joplin server access token
    --ident		shows identification
    --quiet		runs quietly
@@ -253,12 +199,7 @@ regular expression pattern to be matched against the folder titles.
 =item B<--host=>I<NNN>
 
 The host where the Joplin server is running.
-Default is the local host.
-
-=item B<--port=>I<XXX>
-
-The port where the Joplin server is listening to.
-Default port is 41184.
+Default is C<http://127.0.0.1:41184>.
 
 =item B<--token=>I<XXX>
 

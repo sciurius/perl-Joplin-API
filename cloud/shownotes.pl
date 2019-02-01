@@ -3,8 +3,8 @@
 # Author          : Johan Vromans
 # Created On      : Mon Sep  3 10:45:33 2018
 # Last Modified By: Johan Vromans
-# Last Modified On: Thu Oct 11 16:53:27 2018
-# Update Count    : 186
+# Last Modified On: Fri Oct 12 11:14:53 2018
+# Update Count    : 231
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -15,7 +15,7 @@ use warnings;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( shownotes 0.01 );
+my ($my_name, $my_version) = qw( shownotes 0.02 );
 
 ################ Command line parameters ################
 
@@ -41,7 +41,16 @@ my $TMPDIR = $ENV{TMPDIR} || $ENV{TEMP} || '/usr/tmp';
 
 ################ The Process ################
 
-foreach my $file ( @ARGV ) {
+my $root = Joplin::Notebook->new( _title => "Root" );
+my $res;
+
+while ( @ARGV ) {
+    my $file = shift;
+    if ( -d $file ) {
+	unshift( @ARGV, glob( "$file/*.md" ) );
+	$res = { map { $_ => 1 } glob( "$file/.resource/*" ) };
+	redo;
+    }
     my $fd;
     unless ( open( $fd, '<:utf8', $file ) ) {
 	warn("$file: $!\n");
@@ -51,100 +60,52 @@ foreach my $file ( @ARGV ) {
     my $raw = do { local $/; <$fd> };
     close($fd);
 
-    loadnote( $file, $raw );
+    $root->loadnote( $file, $raw );
 }
 
-print Joplin->top->to_string;
+print $root->to_string;
+
+foreach ( @{ $root->resources } ) {
+    if ( $res->{$_} ) {
+	delete $res->{$_};
+    }
+    else {
+	warn("Missing resource: $_\n");
+    }
+}
+foreach ( keys %$res ) {
+    warn("Unreferences resource: $_\n");
+}
 
 ################ Subroutines ################
 
-my @notebjects;
-
-BEGIN {
-    @notebjects =
-      qw( Unknown Note Notebook Unknown Image
-	  Unknown Unknown Unknown Unknown Key );
-}
-
-sub loadnote {
-    my ( $file, $data ) = @_;
-
-    unless (defined $data ) {
-	my $fd;
-	unless ( open( $fd, '<:utf8', $file ) ) {
-	    warn("$file: $!\n");
-	    return;
-	}
-	$data = do { local $/; <$fd> };
-    }
-
-    my $meta;
-    my $type;
-    ( $type, $data, $meta ) = Joplin::get_type($data);
-    unless ( defined $type ) {
-	warn("$file: No type?\n");
-	return;
-    }
-
-    my $handler = $notebjects[$type];
-    if ( !defined($handler) || $handler eq 'Unknown' ) {
-	warn("$file: Unhandled type [$type] -- skipped\n");
-	return;
-    }
-
-    $handler = 'Joplin::' . $handler;
-    return $handler->new->load( $file, $data, $meta );
-}
-
-#sub titlesort { $tree->{$a}->{_title} cmp $tree->{$b}->{_title} }
-#
-#sub shownote {
-#    my ( $n ) = @_;
-#    print $tree->{$n}->{_title}, "\n";
-#    if ( $tree->{$n}->{_children} ) {
-#	foreach ( sort { $a->{_title} cmp $b->{_title} } @{ $tree->{$n}->{_children} } ) {
-#	    print $n->{_title}, "\n";
-#	}
-#    }
-#}
 
 ################ Modules ################
 
-package Joplin;
-
-my $notes;
-
-sub get_type {
-    my ( $raw ) = @_;
-    my ( $data, $meta ) = $raw =~ /^(.*)\n\n((?:[^\n]+\n)+[^\n]+)\z/s;
-    my $type; ( $type ) = $meta =~ m/^type_:\s+(\d+)\z/m;
-    wantarray ? ( $type, $data, $meta ) : $type;
-}
-
-sub top { $notes->{'*top*'} }
+package Joplin;			################
 
 package Joplin::Base;
 
 sub new {
     my $pkg = shift;
-    my $self = { @_ };
-    bless $self => $pkg;
+    bless { @_ } => $pkg;
 }
 
 sub id     { $_[0]->{id} }
 sub data   { $_[0]->{_data} }
 sub title  { $_[0]->{_title} }
 sub type   { $_[0]->{type_} }
-sub parent_id { $_[0]->{parent_id} || '*top*' }
+sub parent_id { $_[0]->{parent_id} || '' }
+sub root   { $_[0]->{_root} }
+
+# Get or create parent.
 sub parent {
-    my $pid = $_[0]->parent_id;
-    use DDumper;
-    unless ( $pid ) {
-	DDumper($_[0]);
-    }
-    $notes->{$pid} //= Joplin::Notebook->new;
+    my ( $self ) = @_;
+    my $pid = $self->parent_id;
+    $self->root->notes->{$pid} //= Joplin::Notebook->new;
 }
 
+# Type dependent content loader. Internal.
 sub load {
     my ( $self, $file, $data, $meta ) = @_;
 
@@ -157,20 +118,19 @@ sub load {
     $self->{_data} = $data;
     $self->{_size} = length($data);
 
-    if ( $notes->{$self->id} ) {
+    if ( $self->root->notes->{$self->id} ) {
 	while ( my($k,$v) = each(%$self) ) {
-	    $notes->{$self->id}->{$k} = $v;
+	    $self->root->notes->{$self->id}->{$k} = $v;
 	}
     }
     else {
-	$notes->{$self->id} = $self;
+	$self->root->notes->{$self->id} = $self;
     }
-
-    $self->parent->add($self);
-
+    $self->parent->add($self) if $self->parent_id ne '';
     return $self;
 }
 
+# Stringification.
 sub to_string {
     my ( $self ) = @_;
     my $res = ref($self);
@@ -180,28 +140,85 @@ sub to_string {
     $res . "\n";
 }
 
-package Joplin::Notebook;
+package Joplin::Notebook;	################
 
 use parent -norequire => Joplin::Base::;
 
 sub new {
-    my ( $pkg, %init ) = @_;
-    my $self = { type_ => 2, _notes => [], %init };
-    bless $self, $pkg;
-}
-
-BEGIN {
-    $notes->{'*top*'} = Joplin::Notebook->new( _title => 'Top' );
+    shift->SUPER::new( type_ => 2,
+		       _notes => {},
+		       _resources => [],
+		       _children => [],
+		       @_ );
 }
 
 sub add {
     my ( $self, $note ) = @_;
-    push( @{ $self->{_notes} }, $note );
+    push( @{ $self->{_children} }, $note );
 }
 
-sub notes {
+sub get_type {
+    my ( $self, $raw ) = @_;
+    my ( $data, $meta ) = $raw =~ /^(.*)\n\n((?:[^\n]+\n)+[^\n]+)\z/s;
+    my $type; ( $type ) = $meta =~ m/^type_:\s+(\d+)\z/m;
+    wantarray ? ( $type, $data, $meta ) : $type;
+}
+
+my @notebjects;			# STATIC
+
+# This is the one and only method to add a note (file) to the notebook.
+sub loadnote {
+    my ( $self, $file, $data ) = @_;
+
+    unless (defined $data ) {
+	my $fd;
+	unless ( open( $fd, '<:utf8', $file ) ) {
+	    warn("$file: $!\n");
+	    return;
+	}
+	$data = do { local $/; <$fd> };
+    }
+
+    my $meta;
+    my $type;
+    ( $type, $data, $meta ) = $self->get_type($data);
+    unless ( defined $type ) {
+	warn("$file: No type?\n");
+	return;
+    }
+
+    @notebjects =
+      qw( Unknown Note Notebook Unknown Image
+	  Unknown Unknown Unknown Unknown Key )
+	unless @notebjects;
+
+    my $handler = $notebjects[$type];
+    if ( !defined($handler) || $handler eq 'Unknown' ) {
+	warn("$file: Unhandled type [$type] -- skipped\n");
+	return;
+    }
+
+    $handler = 'Joplin::' . $handler;
+    my $new = $handler->new( _root => $self )->load( $file, $data, $meta );
+    $self->add($new) if $new->parent_id eq '';
+    push( @{ $self->{_resources} }, $new->{_resource} )
+      if $new->{_resource};
+
+    return $new;
+}
+
+sub children {
     my ( $self ) = @_;
-    wantarray ? @{ $self->{_notes} } : $self->{_notes};
+    wantarray ? @{ $self->{_children} } : $self->{_children};
+}
+
+# For root notebooks: *all* the notes in the tree, by id.
+sub notes {
+    $_[0]->{_notes};
+}
+
+sub resources {
+    $_[0]->{_resources};
 }
 
 sub titlesort { lc($a->title) cmp lc($b->title) }
@@ -209,7 +226,7 @@ sub titlesort { lc($a->title) cmp lc($b->title) }
 sub to_string {
     my ( $self ) = @_;
     my $res = "  ";
-    foreach ( sort titlesort $self->notes ) {
+    foreach ( sort titlesort $self->children ) {
 	$res .= $_->to_string;
     }
     $res =~ s/\n/\n  /g;
@@ -217,28 +234,20 @@ sub to_string {
     ref($self) =~ s/^.*:://r . ": " . $self->title . "\n" . $res;
 }
 
-package Joplin::Note;
+package Joplin::Note;		################
 
 use parent -norequire => Joplin::Base::;
 
 sub new {
-    shift->SUPER::new( _type => 1 );
+    shift->SUPER::new( type_ => 1, @_ );
 }
 
-package Joplin::Folder;
+package Joplin::Image;		################
 
 use parent -norequire => Joplin::Base::;
 
 sub new {
-    shift->SUPER::new( _type => 2 );
-}
-
-package Joplin::Image;
-
-use parent -norequire => Joplin::Base::;
-
-sub new {
-    shift->SUPER::new( _type => 4 );
+    shift->SUPER::new( type_ => 4, @_ );
 }
 
 sub load {
@@ -303,11 +312,11 @@ __END__
 
 =head1 NAME
 
-sample - skeleton for GetOpt::Long and Pod::Usage
+shownotes - reads a dir with notes and shows a summary
 
 =head1 SYNOPSIS
 
-sample [options] [file ...]
+sample [options] [dir | file ...]
 
  Options:
    --ident		shows identification
@@ -343,7 +352,7 @@ The input file(s) to process, if any.
 
 =head1 DESCRIPTION
 
-B<This program> will read the given input file(s) and do someting
-useful with the contents thereof.
+B<This program> will read the Joplin notes in the given directory and
+produce a symmary.
 
 =cut
