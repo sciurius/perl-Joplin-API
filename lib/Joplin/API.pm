@@ -200,7 +200,9 @@ Returns a hash containing the folder properties for a specific folder.
 
 sub get_folder {
     my ( $self, $folder_id ) = @_;
-    $self->query( "get", "/folders/$folder_id" );
+    $folder_id
+      ? $self->query( "get", "/folders/$folder_id" )
+      : { id => 0 };
 }
 
 =head2 get_folder_notes
@@ -215,7 +217,9 @@ Each element is a hash containing note properties.
 
 sub get_folder_notes {
     my ( $self, $folder_id ) = @_;
-    $self->query( "get", "/folders/$folder_id/notes" );
+    $folder_id
+      ? $self->query( "get", "/folders/$folder_id/notes" )
+      : $self->get_notes;
 }
 
 =head2 create_folder
@@ -247,9 +251,11 @@ sub create_folder {
 
     my $data = {};
     for ( qw( title parent_id ) ) {
-	$data->{$_} = $args{$_} if exists $args{$_};
+	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
     $data->{title} //= $title;
+    croak( "Joplin::API: Unhandled properties in create_folder: " .
+	   join(" ", sort keys %args) ) if %args;
 
     $self->query( "post", "/folders", $data );
 }
@@ -283,8 +289,10 @@ sub update_folder {
 
     my $data = {};
     for ( qw( title parent_id ) ) {
-	$data->{$_} = $args{$_} if exists $args{$_};
+	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
+    croak( "Joplin::API: Unhandled properties in update_folder: " .
+	   join(" ", sort keys %args) ) if %args;
 
     $self->query( "post", "/folders/$folder_id", $data );
 }
@@ -311,8 +319,8 @@ Finds folders by name.
     $res = $api->find_folders($pattern);
 
 The argument C<$pattern> must be a string or a pattern. If a string,
-it performs a case insensitive substring search on the name of the
-folder. A pattern can be used for more complex matches.
+it performs a case insensitive search on the name of the folder. A
+pattern can be used for more complex matches.
 
 Returns a (possibly empty) array of hashes with folder info if successful.
 
@@ -326,7 +334,7 @@ sub find_folders {
 
     my $folder;
     unless ( ref($pat) && ref($pat) eq "Regexp" ) {
-	$pat = qr/^.*$pat/i;	# case insens substr
+	$pat = qr/^$pat$/i;	# case insens
     }
 
     # Recursive search through hierarchy.
@@ -346,7 +354,24 @@ sub __find_folders {
 	push( @res, { %$folder } ) if $folder->{title} =~ $pat;
     }
 
-    return @res ? \@res : undef;
+    return \@res;
+}
+
+sub find_folder_notes {
+    my ( $self, $folder_id, $pat ) = @_;
+    croak("Joplin::API: find_folder_notes requires an argument")
+      unless defined $pat;
+
+    unless ( ref($pat) && ref($pat) eq "Regexp" ) {
+	$pat = qr/^$pat$/i;	# case insens
+    }
+
+    my @res;
+    foreach my $item ( @{ $self->get_folder_notes($folder_id) } ) {
+	push( @res, { %$item } ) if $item->{title} =~ $pat;
+    }
+
+    return \@res;
 }
 
 ################ Notes ################
@@ -437,8 +462,10 @@ sub create_note {
 		 body      => $body,
 		 parent_id => $parent_id };
     for ( qw( author source_url tags is_todo ) ) {
-	$data->{$_} = $args{$_} if exists $args{$_};
+	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
+    croak( "Joplin::API: Unhandled properties in create_note: " .
+	   join(" ", sort keys %args) ) if %args;
 
     $self->query( "post", "/notes/", $data );
 }
@@ -500,7 +527,7 @@ sub update_note {
 	      is_todo todo_due todo_completed ) ) {
 	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
-    croak( "Joplin: Unhandled properties in update_note: " .
+    croak( "Joplin::API: Unhandled properties in update_note: " .
 	   join(" ", sort keys %args) ) if %args;
     # Only works with put.
     $self->query( "put", "/notes/$note_id", $data );
@@ -528,8 +555,8 @@ Finds notes by name.
     $res = $api->find_notes($pattern);
 
 The argument C<$pattern> must be a string or a pattern. If a string,
-it performs a case insensitive substring search on the name of the
-note. A pattern can be used for more complex matches.
+it performs a case insensitive search on the name of the note. A
+pattern can be used for more complex matches.
 
 Returns a (possibly empty) array of hashes with note info if successful.
 
@@ -676,8 +703,8 @@ Finds tags by name.
     $res = $api->find_tags($pattern);
 
 The argument C<$pattern> must be a string or a pattern. If a string,
-it performs a case insensitive substring search on the name of the
-tag. A pattern can be used for more complex matches.
+it performs a case insensitive search on the name of the tag. A
+pattern can be used for more complex matches.
 
 Note that tag names (titles) are downcased by Joplin. Searching with a
 pattern that requires uppercase characters will never succeed.
@@ -755,13 +782,15 @@ Returns the properties for the new resource.
 sub create_resource {
     my ( $self, $file, %args ) = @_;
 
-    croak("Joplin: Resource $file not found")
+    croak("Joplin::API: Resource $file not found")
       unless -e -s -r $file;
 
     my $data = { props => { title => $file } };
     for ( qw( title mime ) ) {
 	$data->{props}->{$_} = delete $args{$_} if exists $args{$_};
     }
+    croak( "Joplin::API: Unhandled properties in create_resource: " .
+	   join(" ", sort keys %args) ) if %args;
 
     $data->{data} = $file;
 
@@ -794,7 +823,7 @@ sub update_resource {
     for ( qw( title mime ) ) {
 	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
-    croak( "Joplin: Unhandled properties in update_resource: " .
+    croak( "Joplin::API: Unhandled properties in update_resource: " .
 	   join(" ", sort keys %args) ) if %args;
 
     $self->query( "put", "/resources/$resource_id", $data );
@@ -812,7 +841,7 @@ Returns the raw data for the resource if successful.
 
 sub fetch_resource {
     my ( $self, $resource_id ) = @_;
-    $self->query( "fetch", "/resources/$resource_id/file" );
+    $self->query( "get", "/resources/$resource_id/file", undef, "raw" );
 }
 
 =head2 delete_resource
@@ -846,7 +875,7 @@ Returns true if successful.
 
 sub ping {
     my ( $self ) = @_;
-    $self->query("ping");
+    $self->query( "get", "/ping", undef, "raw" );
 }
 
 =head2 query
@@ -860,42 +889,34 @@ No user servicable parts inside.
 use LWP::UserAgent;
 
 sub query {
-    my ( $self, $method, $path, $data ) = @_;
+    my ( $self, $method, $path, $data, $raw ) = @_;
 
-    my $ping = $method eq "ping";
-    if ( $ping ) {
-	$method = "get";
-	$path = "/ping";
-    }
-    my $fetch = $method eq "fetch";
-    $method = "get" if $fetch;
-
-    croak("Joplin: Unsupported query path: $path")
+    croak("Joplin::API: Unsupported query path: $path")
       unless $path =~ m;^/(?:notes|folders|tags|resources|ping)(?:/|$);;
 
     my $ua = $self->{ua} ||= LWP::UserAgent->new( timeout => 10 );
     my $pp = $self->{pp} ||= JSON->new->utf8;
 
     $path = $self->{server} . $path;
-    $path .= "?token=" . $self->{apikey} unless $ping;
+    $path .= "?token=" . $self->{apikey} unless $path eq "/ping";
 
     warn( uc($method), " $path" ) if $self->{debug};
 
     my $res;
     if    ( $method eq "get" || $method eq "delete" ) {
-	croak("Joplin: $method query doesn't take data") if $data;
+	croak("Joplin::API: $method query doesn't take data") if $data;
 	$res = $ua->$method($path);
-	if ( $ping || $fetch ) {
+	if ( $raw ) {
 	    return undef unless $res->is_success;
 	    return $res->decoded_content;
 	}
     }
     elsif ( $method eq "put" || $method eq "post" ) {
-	croak("Joplin: $method query requires data") unless $data;
+	croak("Joplin::API: $method query requires data") unless $data;
 	$res = $ua->$method( $path, Content => $pp->encode($data) );
     }
     elsif ( $method eq "post+" ) {
-	croak("Joplin: $method query requires data") unless $data;
+	croak("Joplin::API: $method query requires data") unless $data;
 	$res = $ua->post( $path,
 			  Content_Type => 'form-data',
 			  Content => [ data => [ $data->{data} ],
@@ -903,24 +924,24 @@ sub query {
 				     ] );
     }
     else {
-	croak("Joplin: Unsupported query method: $method");
+	croak("Joplin::API: Unsupported query method: $method");
     }
 
     warn($res->decoded_content) if $self->{debug};
     unless ( $res->is_success ) {
 	return 1 if $res->status_line =~ /500 OK/;
-	croak( "Joplin: " . $res->status_line )
+	croak( "Joplin::API: " . $res->status_line )
     }
     return $pp->decode($res->decoded_content);
 }
 
 sub _find_internal {
     my ( $self, $what, $pat ) = @_;
-    croak("Joplin: find_$what requires an argument") unless defined $pat;
+    croak("Joplin::API: find_$what requires an argument") unless defined $pat;
     $what = "get_$what";
 
     unless ( ref($pat) && ref($pat) eq "Regexp" ) {
-	$pat = qr/^.*$pat/i;	# case insens substr
+	$pat = qr/^.*$pat/i;	# case insens
     }
 
     my @res;
