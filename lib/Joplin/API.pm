@@ -8,6 +8,7 @@ package Joplin::API;
 
 use JSON;
 use Carp;
+use Data::Dumper;
 
 our $VERSION = "0.01";
 
@@ -49,6 +50,26 @@ The API is described in L<https://joplin.cozic.net/api/>.
 =head1 METHODS
 
 B<Important:> All methods will throw an exception in case of errors.
+
+All methods will return a property hash, or a reference to an array of property hashes, except:
+
+=over 3
+
+=item *
+
+The C<find_...> methods will return an array of property hashes in
+list context, and a reference to this array in scalar context.
+
+=item *
+
+The C<delete_...> methods will return true if successful.
+
+=item *
+
+Method C<ping> returns the identification string from the Joplin
+server, usually C<JoplinClipperServer>
+
+=back
 
 =head2 new
 
@@ -289,12 +310,13 @@ sub update_folder {
 
     my $data = {};
     for ( qw( title parent_id ) ) {
-	$data->{$_} = delete $args{$_} if exists $args{$_};
+	next unless exists $args{$_};
+	$data->{$_} = delete $args{$_};
     }
     croak( "Joplin::API: Unhandled properties in update_folder: " .
 	   join(" ", sort keys %args) ) if %args;
 
-    $self->query( "post", "/folders/$folder_id", $data );
+    $self->query( "put", "/folders/$folder_id", $data );
 }
 
 =head2 delete_folder
@@ -328,9 +350,9 @@ Returns a (possibly empty) array of hashes with folder info if successful.
 
 sub find_folders {
     croak("Joplin find_folders requires an argument") unless @_ == 2;
-    my ( $self, $pat ) = @_;
+    my ( $self, $pat, $folders ) = @_;
 
-    my $folders = $self->get_folders;
+    $folders //= $self->get_folders;
 
     my $folder;
     unless ( ref($pat) && ref($pat) eq "Regexp" ) {
@@ -354,24 +376,14 @@ sub __find_folders {
 	push( @res, { %$folder } ) if $folder->{title} =~ $pat;
     }
 
-    return \@res;
+    return wantarray ? @res : \@res;
 }
 
 sub find_folder_notes {
     my ( $self, $folder_id, $pat ) = @_;
     croak("Joplin::API: find_folder_notes requires an argument")
       unless defined $pat;
-
-    unless ( ref($pat) && ref($pat) eq "Regexp" ) {
-	$pat = qr/^$pat$/i;	# case insens
-    }
-
-    my @res;
-    foreach my $item ( @{ $self->get_folder_notes($folder_id) } ) {
-	push( @res, { %$item } ) if $item->{title} =~ $pat;
-    }
-
-    return \@res;
+    $self->find_folders( $pat, $self->get_folder_notes($folder_id) );
 }
 
 ################ Notes ################
@@ -913,6 +925,7 @@ sub query {
     }
     elsif ( $method eq "put" || $method eq "post" ) {
 	croak("Joplin::API: $method query requires data") unless $data;
+	warn(Dumper($data)) if $self->{debug};
 	$res = $ua->$method( $path, Content => $pp->encode($data) );
     }
     elsif ( $method eq "post+" ) {
@@ -949,7 +962,7 @@ sub _find_internal {
 	push( @res, { %$item } ) if $item->{title} =~ $pat;
     }
 
-    return \@res;
+    return wantarray ? @res : \@res;
 }
 
 =head1 LICENSE

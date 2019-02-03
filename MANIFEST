@@ -1,7 +1,6 @@
 cloud/addnote.pl
 cloud/picklist.pl
 cloud/shownotes.pl
-lib/Joplin/API.pm
 Makefile
 Makefile.PL
 README.md
@@ -16,3 +15,10 @@ t/05_note.t
 t/06_tags.t
 t/07_tags.t
 t/joplin.dat
+lib/Joplin.pm
+lib/Joplin/Note.pm
+lib/Joplin/Base.pm
+lib/Joplin/API.pm
+lib/Joplin/Resource.pm
+lib/Joplin/Tag.pm
+lib/Joplin/Folder.pm

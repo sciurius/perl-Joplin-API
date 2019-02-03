@@ -3,9 +3,10 @@
 use strict;
 use warnings;
 use utf8;
-use Carp;
 
 package Joplin::Base;
+
+use Carp;
 
 sub api() :lvalue {
     $_[0]->{_api};
@@ -25,6 +26,14 @@ sub get_notes {
     }
 }
 
+sub _get_property {
+    my ( $self, $name ) = splice( @_, 0, 2 );
+    if ( @_ >= 1 ) {
+	croak("Joplin: Property '$name' is read-only");
+    }
+    $self->{$name};
+}
+
 sub _set_get_property :lvalue {
     my ( $self, $name ) = splice( @_, 0, 2 );
     if ( @_ == 1 ) {
@@ -34,15 +43,36 @@ sub _set_get_property :lvalue {
 }
 
 sub _set_property_handlers {
-    my ( $pkg, $props ) = @_;
+    my ( $pkg, $rwprops, $roprops ) = @_;
     no strict 'refs';
-    foreach ( @$props ) {
+    foreach ( @$rwprops ) {
 	my $attr = $_;		# lexical for closure
 	*{$pkg.'::'.$_} = sub :lvalue {
 	    splice( @_, 1, 0, $attr );
 	    goto &_set_get_property;
 	};
     }
+    foreach ( @$roprops ) {
+	my $attr = $_;		# lexical for closure
+	*{$pkg.'::'.$_} = sub {
+	    splice( @_, 1, 0, $attr );
+	    goto &_get_property;
+	};
+    }
+    *{$pkg.'::'.'properties'} = sub {
+	my ( $self, $what ) = @_;
+	my @res;
+	if ( !$what ) {
+	    push( @res, @$roprops, @$rwprops );
+	}
+	elsif ( $what eq 'ro' ) {
+	    push( @res, @$roprops );
+	}
+	elsif ( $what eq 'rw' ) {
+	    push( @res, @$rwprops );
+	}
+	wantarray ? @res : \@res;
+    };
 }
 
 sub iso8601date {

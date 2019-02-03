@@ -12,6 +12,22 @@ use parent qw(Joplin::Base);
 our $TYPE = 1;			# node type
 our @PROPERTIES;		# node properties
 
+=name2 delete
+
+Deletes the current note.
+
+    $note->delete;
+
+Returns true if successful.
+
+=cut
+
+sub delete {
+    my ( $self ) = @_;
+    $self->api->delete_note( $self->id );
+}
+
+
 ################ Initialisation ################
 
 BEGIN {
