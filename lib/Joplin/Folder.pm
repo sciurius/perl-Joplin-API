@@ -47,7 +47,7 @@ Returns an array with Joplin::Note objects.
 
 sub get_notes {
     my ( $self ) = @_;
-    my @res = map { bless { _api => $self->api, %$_ } => "Joplin::Note" }
+    my @res = map { Joplin::Note->_wrap( $_, $self->api ) }
       @{ $self->api->get_folder_notes( $self->id ) };
     wantarray ? @res : \@res;
 }
@@ -64,8 +64,8 @@ Returns an array with Joplin::Note objects.
 
 sub find_notes {
     my ( $self, $pat ) = @_;
-    my @res = map { bless { _api => $self->api, %$_ } => "Joplin::Note" }
-        @{ $self->api->get_folder_notes( $self->id, $pat ) };
+    my @res = map { Joplin::Note->_wrap( $_, $self->api ) }
+        @{ $self->api->find_folder_notes( $self->id, $pat ) };
     wantarray ? @res : \@res;
 }
 
@@ -82,7 +82,7 @@ Returns an array with Joplin::Folder objects.
 sub find_folders {
     my ( $self, $pat ) = @_;
     if ( $self->is_root ) {
-	my @res = map { bless { _api => $self->api, %$_ } => "Joplin::Folder" }
+	my @res = map { Joplin::Note->_wrap( $_, $self->api ) }
 	  @{ $self->api->find_folders($pat) };
 	return wantarray ? @res : \@res;
     }
@@ -102,9 +102,8 @@ Returns a Joplin::Folder object for the new folder.
 sub create_folder {
     my ( $self, $title, %args ) = @_;
     $args{parent_id} //= $self->id;
-    bless { _api => $self->api,
-	    %{ $self->api->create_folder( $title, %args ) } }
-      => "Joplin::Folder";
+    Joplin::Folder->_wrap( $self->api->create_folder( $title, %args ),
+			   $self->api );
 }
 
 =name2 create_note
@@ -119,9 +118,8 @@ Returns a Joplin::Note object for the new note.
 
 sub create_note {
     my ( $self, $title, $content, %args ) = @_;
-    bless { _api => $self->api,
-	    %{ $self->api->create_note( $title, $content, $self->id, %args ) } }
-      => "Joplin::Note";
+    Joplin::Note->_wrap( $self->api->create_note( $title, $content, $self->id, %args ),
+			 $self->api );
 }
 
 =name2 delete
@@ -142,7 +140,7 @@ sub delete {
 
 =head2 update
 
-Updates the properties of the folder.
+Updates the properties of the folder to the server.
 
     $res = $folder->update;
 
@@ -169,6 +167,23 @@ sub update {
     $self;
 }
 
+=head2 refresh
+
+Updates the folder to the server properties.
+
+   $res = $folder->refresh
+
+Returns the folder object with refreshed properties.
+
+=cut
+
+sub refresh {
+    my ( $self ) = @_;
+    my $new = $self->api->get_folder( $self->id );
+    @$self{keys(%$new)} = values(%$new);
+    $self;
+}
+
 =head2 is_root
 
 Tests if this folder is the root folder.
@@ -184,14 +199,14 @@ sub is_root {
 ################ Initialisation ################
 
 BEGIN {
-    my @rw =
-      qw( id parent_id title
-	  user_created_time user_updated_time );
-    my @ro =
-      qw( created_time updated_time
-	  encryption_cipher_text encryption_applied );
+    my $rw =
+      [ qw( id parent_id title
+	    user_created_time user_updated_time ) ];
+    my $ro =
+      [ qw( created_time updated_time
+	    encryption_cipher_text encryption_applied ) ];
 
-    __PACKAGE__->_set_property_handlers( \@rw, \@ro );
+    __PACKAGE__->_set_property_handlers( $rw, $ro );
 }
 
 1;

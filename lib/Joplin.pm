@@ -76,8 +76,8 @@ Alternative name for C<token>.
 
 sub connect {
     my ( $pkg, %init ) = @_;
-    my $self = bless { id => '' } => "Joplin::Folder";
-    $self->api = Joplin::API->new(%init);
+    my $self = Joplin::Folder->_wrap( { id => '' },
+				      Joplin::API->new(%init) );
     return $self;
 }
 

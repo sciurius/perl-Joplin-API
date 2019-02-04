@@ -576,7 +576,7 @@ Returns a (possibly empty) array of hashes with note info if successful.
 
 sub find_notes {
     splice( @_, 1, 0, "notes" );
-    goto &_find_internal;
+    goto &find_selected;
 }
 
 
@@ -727,8 +727,12 @@ Returns a (possibly empty) array of hashes with tag info if successful.
 
 sub find_tags {
     splice( @_, 1, 0, "tags" );
-    goto &_find_internal;
+    goto &find_selected;
 }
+
+sub find_tag_notes {
+}
+
 
 ################ Resources ################
 
@@ -948,17 +952,18 @@ sub query {
     return $pp->decode($res->decoded_content);
 }
 
-sub _find_internal {
-    my ( $self, $what, $pat ) = @_;
+sub find_selected {
+    my ( $self, $what, $pat, $list ) = @_;
     croak("Joplin::API: find_$what requires an argument") unless defined $pat;
     $what = "get_$what";
+    $list //= $self->$what;
 
     unless ( ref($pat) && ref($pat) eq "Regexp" ) {
 	$pat = qr/^.*$pat/i;	# case insens
     }
 
     my @res;
-    foreach my $item ( @{ $self->$what } ) {
+    foreach my $item ( @$list ) {
 	push( @res, { %$item } ) if $item->{title} =~ $pat;
     }
 
