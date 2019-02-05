@@ -6,6 +6,7 @@ use utf8;
 
 package Joplin::Base;
 
+use Joplin::API;
 use Carp;
 
 # _wrap takes the supplied hash and wraps it in a new object.
@@ -70,16 +71,18 @@ sub _set_get_property :lvalue {
 # Sets up the property handlers for readonly and readwrite properties.
 
 sub _set_property_handlers {
-    my ( $pkg, $rwprops, $roprops ) = @_;
+    my ( $pkg ) = @_;
+    ( my $type = lc $pkg ) =~ s/^.*:://;
+
     no strict 'refs';
-    foreach ( @$rwprops ) {
+    foreach ( @{ Joplin::API->properties( $type, "rw" ) } ) {
 	my $attr = $_;		# lexical for closure
 	*{$pkg.'::'.$_} = sub :lvalue {
 	    splice( @_, 1, 0, $attr );
 	    goto &_set_get_property;
 	};
     }
-    foreach ( @$roprops ) {
+    foreach ( @{ Joplin::API->properties( $type, "ro" ) } ) {
 	my $attr = $_;		# lexical for closure
 	*{$pkg.'::'.$_} = sub {
 	    splice( @_, 1, 0, $attr );
@@ -88,16 +91,7 @@ sub _set_property_handlers {
     }
     *{$pkg.'::'.'properties'} = sub {
 	my ( $self, $what ) = @_;
-	my @res;
-	if ( !$what ) {
-	    push( @res, @$roprops, @$rwprops );
-	}
-	elsif ( $what eq 'ro' ) {
-	    push( @res, @$roprops );
-	}
-	elsif ( $what eq 'rw' ) {
-	    push( @res, @$rwprops );
-	}
+	my @res = @{ Joplin::API->properties( $type, $what ) };
 	wantarray ? @res : \@res;
     };
 }

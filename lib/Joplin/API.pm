@@ -192,6 +192,54 @@ sub set_debug {
     $self->{debug} = @_ == 1 ? 1 : $_[1];
 }
 
+################ Properties ################
+
+my $properties =
+  { note =>
+    { rw => [ qw(id parent_id title body
+		 latitude longitude altitude
+		 author source_url is_todo todo_due todo_completed
+		 source source_application application_data
+		 order user_created_time user_updated_time
+		 body_html base_url image_data_url crop_rect) ],
+      ro => [ qw(created_time updated_time
+		 encryption_cipher_text encryption_applied) ] },
+
+    folder =>
+    { rw => [ qw(id parent_id title
+		 user_created_time user_updated_time) ],
+      ro => [ qw(created_time updated_time
+		 encryption_cipher_text encryption_applied) ] },
+
+    tag =>
+    { rw => [ qw(id title user_created_time user_updated_time) ],
+      ro => [ qw(created_time updated_time
+		 encryption_cipher_text encryption_applied) ] },
+
+    resource =>
+    { rw => [ qw(id title mime filename
+		 user_created_time user_updated_time
+		 file_extension) ],
+      ro => [ qw(created_time updated_time
+		 encryption_cipher_text
+		 encryption_applied encryption_blob_encrypted) ] },
+  };
+
+sub properties {
+    my ( $pkg, $item, $type ) = @_;
+    croak("Joplin::API: No properties for $item")
+      unless defined $properties->{$item};
+    if ( !$type ) {
+	[ @{ $properties->{$item}->{ro} }, @{ $properties->{$item}->{rw} } ];
+    }
+    elsif ( $type eq "ro" || $type eq "rw" ) {
+	$properties->{$item}->{$type};
+    }
+    else {
+	croak("Joplin::API: No $type properties for $item")
+    }
+}
+
 ################ Folders ################
 
 =head1 FOLDER METHODS
@@ -271,7 +319,7 @@ sub create_folder {
     my ( $self, $title, %args ) = @_;
 
     my $data = {};
-    for ( qw( title parent_id ) ) {
+    for ( @{ $properties->{folder}->{rw} } ) {
 	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
     $data->{title} //= $title;
@@ -309,7 +357,7 @@ sub update_folder {
     my ( $self, $folder_id, %args ) = @_;
 
     my $data = {};
-    for ( qw( title parent_id ) ) {
+    for ( @{ $properties->{folder}->{rw} } ) {
 	next unless exists $args{$_};
 	$data->{$_} = delete $args{$_};
     }
@@ -340,50 +388,23 @@ Finds folders by name.
 
     $res = $api->find_folders($pattern);
 
-The argument C<$pattern> must be a string or a pattern. If a string,
-it performs a case insensitive search on the name of the folder. A
-pattern can be used for more complex matches.
+The optional argument C<$pattern> must be a string or a pattern. If a
+string, it performs a case insensitive search on the name of the
+folder. A pattern can be used for more complex matches.
+If the pattern is omitted, all results are returned.
 
 Returns a (possibly empty) array of hashes with folder info if successful.
 
 =cut
 
 sub find_folders {
-    croak("Joplin find_folders requires an argument") unless @_ == 2;
-    my ( $self, $pat, $folders ) = @_;
-
-    $folders //= $self->get_folders;
-
-    my $folder;
-    unless ( ref($pat) && ref($pat) eq "Regexp" ) {
-	$pat = qr/^$pat$/i;	# case insens
-    }
-
-    # Recursive search through hierarchy.
-    $self->__find_folders( $pat, $folders );
-}
-
-sub __find_folders {
-    my ( $self, $pat, $folders ) = @_;
-    my @res;
-    foreach my $folder ( @$folders ) {
-	if ( exists $folder->{children} ) {
-	    my $folders = $self->__find_folders( $pat, $folder->{children} );
-	    if ( $folders ) {
-		push( @res, @$folders );
-	    }
-	}
-	push( @res, { %$folder } ) if $folder->{title} =~ $pat;
-    }
-
-    return wantarray ? @res : \@res;
+    $_[2] = $_[0]->get_folders;
+    goto &find_selected;
 }
 
 sub find_folder_notes {
     my ( $self, $folder_id, $pat ) = @_;
-    croak("Joplin::API: find_folder_notes requires an argument")
-      unless defined $pat;
-    $self->find_folders( $pat, $self->get_folder_notes($folder_id) );
+    $self->find_selected( $pat, $self->get_folder_notes($folder_id) );
 }
 
 ################ Notes ################
@@ -450,6 +471,14 @@ Properties:
 
 The name of the note's author.
 
+=item body
+
+The note contents if MarkDown.
+
+=item body_html
+
+The note contents if HTML.
+
 =item source_url
 
 The source URL for the note, if any.
@@ -473,7 +502,7 @@ sub create_note {
     my $data = { title     => $title,
 		 body      => $body,
 		 parent_id => $parent_id };
-    for ( qw( author source_url tags is_todo ) ) {
+    for ( @{ $properties->{note}->{rw} }, "tags" ) {
 	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
     croak( "Joplin::API: Unhandled properties in create_note: " .
@@ -535,8 +564,7 @@ Returns a hash containing the properties of the new folder.
 sub update_note {
     my ( $self, $note_id, %args ) = @_;
     my $data = {};
-    for ( qw( title body parent_id author source_url
-	      is_todo todo_due todo_completed ) ) {
+    for ( @{ $properties->{note}->{rw} } ) {
 	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
     croak( "Joplin::API: Unhandled properties in update_note: " .
@@ -566,16 +594,17 @@ Finds notes by name.
 
     $res = $api->find_notes($pattern);
 
-The argument C<$pattern> must be a string or a pattern. If a string,
-it performs a case insensitive search on the name of the note. A
-pattern can be used for more complex matches.
+The optional argument C<$pattern> must be a string or a pattern. If a
+string, it performs a case insensitive search on the name of the note.
+A pattern can be used for more complex matches. If the pattern is
+omitted, all results are returned.
 
 Returns a (possibly empty) array of hashes with note info if successful.
 
 =cut
 
 sub find_notes {
-    splice( @_, 1, 0, "notes" );
+    $_[2] = $_[0]->get_notes;
     goto &find_selected;
 }
 
@@ -625,9 +654,13 @@ Returns a hash with tag properties.
 =cut
 
 sub create_tag {
-    my ( $self, $title ) = @_;
-    my $data = { title => lc $title };
-
+    my ( $self, $title, %args ) = @_;
+    my $data = { title => $title };
+    for ( @{ $properties->{tag}->{rw} } ) {
+	$data->{$_} = delete $args{$_} if exists $args{$_};
+    }
+    croak( "Joplin::API: Unhandled properties in create_tag: " .
+	   join(" ", sort keys %args) ) if %args;
     $self->query( "post", "/tags", $data );
 }
 
@@ -642,8 +675,13 @@ Returns a hash with updated tag properties.
 =cut
 
 sub update_tag {
-    my ( $self, $tag_id, $title ) = @_;
-    my $data = { title => lc $title };
+    my ( $self, $tag_id, %args ) = @_;
+    my $data = {};
+    for ( @{ $properties->{tag}->{rw} } ) {
+	$data->{$_} = delete $args{$_} if exists $args{$_};
+    }
+    croak( "Joplin::API: Unhandled properties in update_tag: " .
+	   join(" ", sort keys %args) ) if %args;
     $self->query( "put", "/tags/$tag_id", $data );
 }
 
@@ -714,9 +752,10 @@ Finds tags by name.
 
     $res = $api->find_tags($pattern);
 
-The argument C<$pattern> must be a string or a pattern. If a string,
-it performs a case insensitive search on the name of the tag. A
-pattern can be used for more complex matches.
+The optional argument C<$pattern> must be a string or a pattern. If a
+string, it performs a case insensitive search on the name of the tag.
+A pattern can be used for more complex matches. If the pattern is
+omitted, all results are returned.
 
 Note that tag names (titles) are downcased by Joplin. Searching with a
 pattern that requires uppercase characters will never succeed.
@@ -726,7 +765,7 @@ Returns a (possibly empty) array of hashes with tag info if successful.
 =cut
 
 sub find_tags {
-    splice( @_, 1, 0, "tags" );
+    $_[2] = $_[0]->get_tags;
     goto &find_selected;
 }
 
@@ -802,7 +841,7 @@ sub create_resource {
       unless -e -s -r $file;
 
     my $data = { props => { title => $file } };
-    for ( qw( title mime ) ) {
+    for ( @{ $properties->{resource}->{rw} } ) {
 	$data->{props}->{$_} = delete $args{$_} if exists $args{$_};
     }
     croak( "Joplin::API: Unhandled properties in create_resource: " .
@@ -835,8 +874,9 @@ Returns a hash with updated properties.
 
 sub update_resource {
     my ( $self, $resource_id, %args ) = @_;
+
     my $data = {};
-    for ( qw( title mime ) ) {
+    for ( @{ $properties->{resource}->{rw} } ) {
 	$data->{$_} = delete $args{$_} if exists $args{$_};
     }
     croak( "Joplin::API: Unhandled properties in update_resource: " .
@@ -953,18 +993,20 @@ sub query {
 }
 
 sub find_selected {
-    my ( $self, $what, $pat, $list ) = @_;
-    croak("Joplin::API: find_$what requires an argument") unless defined $pat;
-    $what = "get_$what";
-    $list //= $self->$what;
+    my ( $self, $pat, $list ) = @_;
+    $list = $list->() if UNIVERSAL::isa($list, 'CODE');
 
-    unless ( ref($pat) && ref($pat) eq "Regexp" ) {
-	$pat = qr/^.*$pat/i;	# case insens
+    unless ( !$pat || ref($pat) eq "Regexp" ) {
+	$pat = qr/^$pat$/i;	# case insens
     }
 
     my @res;
     foreach my $item ( @$list ) {
-	push( @res, { %$item } ) if $item->{title} =~ $pat;
+	push( @res, { %$item } ) if !$pat || $item->{title} =~ $pat;
+	if ( exists $item->{children} ) {
+	    my $items = $self->find_selected( $pat, $item->{children} );
+	    push( @res, @$items ) if @$items;
+	}
     }
 
     return wantarray ? @res : \@res;

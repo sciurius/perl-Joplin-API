@@ -46,5 +46,5 @@ SKIP: {
 done_testing();
 
 sub folders {
-    scalar( @{ $root->find_folders(qr/./) } );
+    scalar( @{ $root->find_folders } );
 }

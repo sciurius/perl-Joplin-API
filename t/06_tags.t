@@ -29,7 +29,7 @@ SKIP: {
     is( $res->[0]->{id}, $tid, "Found tag $tname" );
     is( $res->[0]->{title}, lc($tname), "It's $tname" );
 
-    $res = $api->update_tag( $tid, "XX$tname" );
+    $res = $api->update_tag( $tid, title => "XX$tname" );
     ok( $res, "Updated tag" );
     is( $res->{id}, $tid, "Found tag" );
 

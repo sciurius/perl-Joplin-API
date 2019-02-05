@@ -35,30 +35,19 @@ use Joplin::Note;
 
 =head1 METHODS
 
-=head2 get_notes
-
-Gets the notes in this folder.
-
-    $res = $folder->get_notes;
-
-Returns an array with Joplin::Note objects.
-
-=cut
-
-sub get_notes {
-    my ( $self ) = @_;
-    my @res = map { Joplin::Note->_wrap( $_, $self->api ) }
-      @{ $self->api->get_folder_notes( $self->id ) };
-    wantarray ? @res : \@res;
-}
-
 =head2 find_notes
 
 Finds notes by name or pattern in this folder.
 
-    $res = $folder->find_notes($pat);
+    @res = $folder->find_notes($pattern);
+    $res = $folder->find_notes($pattern);
 
-Returns an array with Joplin::Note objects.
+The optional argument C<$pattern> must be a string or a pattern. If a
+string, it performs a case insensitive search on the name of the note.
+A pattern can be used for more complex matches. If the pattern is
+omitted, all results are returned.
+
+Returns a (possibly empty) array of Joplin::Note objects.
 
 =cut
 
@@ -73,16 +62,22 @@ sub find_notes {
 
 Finds folders by name or pattern in this folder.
 
-    $res = $folder->find_folder($pat);
+    @res = $folder->find_folder($pattern);
+    $res = $folder->find_folder($pattern);
 
-Returns an array with Joplin::Folder objects.
+The optional argument C<$pattern> must be a string or a pattern. If a
+string, it performs a case insensitive search on the name of the note.
+A pattern can be used for more complex matches. If the pattern is
+omitted, all results are returned.
+
+Returns a (possibly empty) array of Joplin::Folder objects.
 
 =cut
 
 sub find_folders {
     my ( $self, $pat ) = @_;
     if ( $self->is_root ) {
-	my @res = map { Joplin::Note->_wrap( $_, $self->api ) }
+	my @res = map { Joplin::Folder->_wrap( $_, $self->api ) }
 	  @{ $self->api->find_folders($pat) };
 	return wantarray ? @res : \@res;
     }
@@ -156,8 +151,8 @@ sub update {
     my $data = {};
     foreach ( keys(%$current) ) {
 	$data->{$_} = $new->{$_}
-	  if $_ =~ /^parent_id|title$/
-	    && defined($new->{$_}) && $new->{$_} ne $current->{$_};
+	  if #exists $self->properties("rw")->{$_} &&
+	    defined($new->{$_}) && $new->{$_} ne $current->{$_};
 	delete $new->{$_};
     }
     croak("Joplin: Unhandled properties in folder update: " .
@@ -198,15 +193,6 @@ sub is_root {
 
 ################ Initialisation ################
 
-BEGIN {
-    my $rw =
-      [ qw( id parent_id title
-	    user_created_time user_updated_time ) ];
-    my $ro =
-      [ qw( created_time updated_time
-	    encryption_cipher_text encryption_applied ) ];
-
-    __PACKAGE__->_set_property_handlers( $rw, $ro );
-}
+__PACKAGE__->_set_property_handlers;
 
 1;
