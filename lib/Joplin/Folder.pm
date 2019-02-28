@@ -32,6 +32,7 @@ use Carp;
 use parent qw(Joplin::Base);
 
 use Joplin::Note;
+use Joplin::Tag;
 
 =head1 METHODS
 
@@ -189,6 +190,24 @@ Tests if this folder is the root folder.
 
 sub is_root {
     ( $_[0]->id // '1' ) eq '';
+}
+
+=head2 find_tags
+
+Finds matching tags.
+
+    @res = $root->find_tags("my tag");
+
+Returns a possible empty) array of Joplin::Tag objects.
+
+=cut
+
+sub find_tags {
+    my ( $self, $pat ) = @_;
+
+    my @res = map { Joplin::Tag->_wrap( $_, $self->api ) }
+      @{ $self->api->find_tags($pat) };
+    wantarray ? @res : \@res;
 }
 
 ################ Initialisation ################

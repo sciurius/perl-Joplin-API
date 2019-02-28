@@ -9,6 +9,8 @@ package Joplin::Note;
 
 use parent qw(Joplin::Base);
 
+use Joplin::Tag;
+
 =head2 update
 
 Updates the properties of the note to the server.
@@ -80,6 +82,49 @@ sub export {
       or croak("Export: $filename [$!]");
     print $fd $self->{body_html} || $self->{body};
     close($fd);
+}
+
+=name2 add_tag
+
+Adds a tag to the note.
+
+    $tag = $note->add_tag("my tag");
+
+Returns a Joplin::Tag object.
+
+=cut
+
+sub add_tag {
+    my ( $self, $title, %args ) = @_;
+
+    my $tag = $self->api->find_tags($title)->[0]
+      // $self->api->create_tag($title, %args);
+
+    $tag = Joplin::Tag->_wrap($tag);
+    $self->api->create_tag_note( $tag->id, $self->id );
+    return $tag;
+}
+
+=name2 delete_tag
+
+Removes a tag from the note.
+
+    $tag = $note->delete_tag("my tag");
+
+Returns true upon success.
+
+=cut
+
+sub delete_tag {
+    my ( $self, $tag ) = @_;
+
+    unless ( ref($tag) eq "Joplin::Tag" ) {
+	$tag = $self->api->find_tags($tag)->[0];
+	return 1 unless defined $tag;
+	$tag = Joplin::Tag->_wrap($tag);
+    }
+
+    $self->api->delete_tag_note( $tag->id, $self->id );
 }
 
 ################ Initialisation ################

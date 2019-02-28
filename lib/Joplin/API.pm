@@ -959,13 +959,18 @@ sub query {
     warn( uc($method), " $path" ) if $self->{debug};
 
     my $res;
-    if    ( $method eq "get" || $method eq "delete" ) {
+    if    ( $method eq "get" ) {
 	croak("Joplin::API: $method query doesn't take data") if $data;
 	$res = $ua->$method($path);
 	if ( $raw ) {
 	    return undef unless $res->is_success;
 	    return $res->decoded_content;
 	}
+    }
+    elsif ( $method eq "delete" ) {
+	croak("Joplin::API: $method query doesn't take data") if $data;
+	$res = $ua->$method($path);
+	return $res->is_success;
     }
     elsif ( $method eq "put" || $method eq "post" ) {
 	croak("Joplin::API: $method query requires data") unless $data;

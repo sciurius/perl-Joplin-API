@@ -9,7 +9,24 @@ package Joplin::Tag;
 
 use parent qw(Joplin::Base);
 
+use Joplin::Note;
+
 =head1 METHODS
+
+=head2 create
+
+Creates a new tag.
+
+    $tag = Joplin::Tag->create("my tag");
+
+Returns a Joplin::Tag object.
+
+=cut
+
+sub create {
+    my ( $pkg, $title, %args ) = @_;
+    my $res = do { ... };
+}
 
 =head2 find_notes
 
