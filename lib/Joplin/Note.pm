@@ -97,10 +97,14 @@ Returns a Joplin::Tag object.
 sub add_tag {
     my ( $self, $title, %args ) = @_;
 
-    my $tag = $self->api->find_tags($title)->[0]
-      // $self->api->create_tag($title, %args);
+    my $tag;
 
-    $tag = Joplin::Tag->_wrap($tag);
+    unless ( ref($title) eq "Joplin::Tag" ) {
+	$tag = $self->api->find_tags($title)->[0]
+	  // $self->api->create_tag($title, %args);
+	$tag = Joplin::Tag->_wrap($tag);
+    }
+
     $self->api->create_tag_note( $tag->id, $self->id );
     return $tag;
 }
@@ -125,6 +129,26 @@ sub delete_tag {
     }
 
     $self->api->delete_tag_note( $tag->id, $self->id );
+}
+
+=name2 folder
+
+Finds the parent forder of the note.
+
+    $folder = $note->folder;
+
+Returns a Joplin::Folder object.
+
+=cut
+
+sub folder {
+    my ( $self ) = @_;
+
+    if ( $self->parent_id eq '' ) {
+	return Joplin::Folder->_wrap( { id => '' }, $self->api );
+    }
+    Joplin::Folder->_wrap( $self->api->get_folder( $self->parent_id ),
+			   $self->api );
 }
 
 ################ Initialisation ################

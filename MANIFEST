@@ -14,6 +14,10 @@ t/04_note.t
 t/05_note.t
 t/06_tags.t
 t/07_tags.t
+t/50_load.t
+t/51_basic.t
+t/52_folders.t
+t/57_tags.t
 t/joplin.dat
 lib/Joplin.pm
 lib/Joplin/Note.pm

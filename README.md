@@ -1,14 +1,93 @@
+README
+
 ## Joplin Tools
 
-This is a collection tools that perform some handy operations on Joplin notes.
+This is a collection tools that implements an API to Joplin and can be used to perform some handy operations on Joplin notes.
 
 See [Joplin Home](https://joplin.cozic.net/) for more information on Joplin.
 
 **NOTE** This is WIP/WFM. YMMV.
 
+### Joplin
+
+This module implements an object oriented interface to the Joplin notes system, using the Joplin clipper server as storage backend.
+
+The interface defines four classes:
+
+ - Joplin::Folder - folder objects
+ - Joplin::Note - note objects
+ - Joplin::Tag - tag objects
+ - Joplin::Resource - resource objects
+
+Using folder objects you can find and manipulate subfolders and notes. Notes can find and manipulate tags, and so on.
+
+#### Connecting to the Joplin server
+
+    use Joplin;
+	$root = Joplin->connect( server => "http://localhost:41884",
+	                         apikey => "YourJoplinClipperAPIKey" );
+
+When the connection is succesfull, a folder object is returned representing the root notebook.
+							 
+#### Finding folders
+
+For example, find the folder with name "Project". For simplicity, assume there is only one.
+
+    $prj = $root->find_folders("Project")->[0];
+
+All `find_...` methods take an optional argument which is a string or a pattern. If a string, it performs a case insensitive search on the names of the folders. A pattern can be used for more complex matches. If the argument is omitted, all results are returned.
+
+#### Finding notes
+
+For example, find all notes in the Project folder that have "january" in the title.
+
+	@notes = $prj->find_notes(qr/january/i);
+
+#### Creating and deleting notes
+
+To create a new note with the given name and markdown content:
+
+    $note = $folder->create_note("Title", "Content goes *here*");
+
+To delete a note:
+
+	$note->delete;
+
+#### Finding tags
+
+	@tags = $note->find_tags;
+
+This yields an array (that may be empty) with all tags associated with this note. Likewise, given a tag, you can find all notes that have this tag associated:
+
+    @notes = $tag->find_notes;
+
+#### Creating and deleting tags
+
+To associate a tag with a note:
+
+    $tag = $note->add_tag("my tag");
+
+To delete the tag from this note:
+
+	$note->delete_tag("my tag");
+
+Alternatively:
+
+	$note->delete_tag($tag);
+
+This deletes the tag from **all** notes **and** from the system:
+
+    $tag->delete;
+
+#### Resources
+
+*To be implemented*
+
 ### Joplin::API
 
-This is the [Joplin Web Clipper API](https://discourse.joplin.cozic.net/t/web-clipper-is-now-available-beta-feature/154/37) implemented in perl.
+This is a low level implementation of the [Joplin Web Clipper API](https://discourse.joplin.cozic.net/t/web-clipper-is-now-available-beta-feature/154/37).
+
+This API deals with JSON data and HTTP calls to the Joplin server. It can be used on itself but its main purpose is to support the higher level Joplin API.
 
 ### script/addnote.pl
 

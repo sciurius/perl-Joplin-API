@@ -9,10 +9,6 @@ package Joplin::Resource;
 
 use parent qw(Joplin::Base);
 
-our $TYPE = 4;			# node type
-our @PROPERTIES;		# node properties
-
-
 
 ################ Initialisation ################
 

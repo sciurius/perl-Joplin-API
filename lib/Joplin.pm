@@ -17,7 +17,7 @@ Joplin - Interface to Joplin notes
     # Find folder with name "Project". Assume there is only one.
     $prj = $root->find_folders("Project")->[0];
 
-    $ Find the notes in the Project folder that have "january" in the title.
+    # Find the notes in the Project folder that have "january" in the title.
     $notes = $prj->find_notes(qr/january/i);
 
 =head1 DESCRIPTION
