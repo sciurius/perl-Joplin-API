@@ -8,6 +8,7 @@ package Joplin::Base;
 
 use Joplin::API;
 use Carp;
+use overload '""' => 'title';
 
 # _wrap takes the supplied hash and wraps it in a new object.
 #
