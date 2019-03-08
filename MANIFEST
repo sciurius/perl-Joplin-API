@@ -5,6 +5,8 @@ Makefile
 Makefile.PL
 README.md
 script/addnote.pl
+script/exportnote.pl
+script/listnotes.pl
 script/pp.PL
 t/00_load.t
 t/01_basic.t
@@ -24,5 +26,6 @@ lib/Joplin/Note.pm
 lib/Joplin/Base.pm
 lib/Joplin/API.pm
 lib/Joplin/Resource.pm
+lib/Joplin/Root.pm
 lib/Joplin/Tag.pm
 lib/Joplin/Folder.pm

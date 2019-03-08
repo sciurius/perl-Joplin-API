@@ -50,13 +50,26 @@ omitted, all results are returned.
 
 Returns a (possibly empty) array of Joplin::Note objects.
 
+With a second, non-false argument, the search includes subfolders.
+
 =cut
 
 sub find_notes {
-    my ( $self, $pat ) = @_;
-    my @res = map { Joplin::Note->_wrap( $_, $self->api ) }
-        @{ $self->api->find_folder_notes( $self->id, $pat ) };
-    wantarray ? @res : \@res;
+    my ( $self, $pat, $recurse ) = @_;
+
+    my $res;
+    if ( $recurse ) {
+	foreach ( @{ $self->api->get_folders_recursive( $self->id ) } ) {
+	    push( @$res,
+		  @{ $self->api->find_folder_notes( $_->{id}, $pat ) } );
+	}
+    }
+    else {
+	$res = $self->api->find_folder_notes( $self->id, $pat );
+    }
+
+    $res = [ map { Joplin::Note->_wrap( $_, $self->api ) } @$res ];
+    return wantarray ? @$res : $res;
 }
 
 =head2 find_folders
@@ -73,16 +86,31 @@ omitted, all results are returned.
 
 Returns a (possibly empty) array of Joplin::Folder objects.
 
+With a second, non-false argument, the search includes subfolders.
+
 =cut
 
 sub find_folders {
-    my ( $self, $pat ) = @_;
-    if ( $self->is_root ) {
-	my @res = map { Joplin::Folder->_wrap( $_, $self->api ) }
-	  @{ $self->api->find_folders($pat) };
-	return wantarray ? @res : \@res;
+    my ( $self, $pat, $recurse ) = @_;
+
+    unless ( !$pat || ref($pat) eq "Regexp" ) {
+	$pat = qr/^$pat$/i;	# case insens
     }
-    $self->api->find_folders( $pat, $self->{children} // [] );
+
+    my @res;
+    my $list = $self->api->get_folders_recursive( $self->id );
+    if ( $recurse ) {
+	shift(@$list);
+    }
+    else {
+	$list = [ grep { $_->{parent_id} eq $self->id } @$list ];
+    }
+    foreach my $f ( @$list ) {
+	next if $pat && $f->{title} !~ $pat;
+	push( @res, Joplin::Folder->_wrap( $f, $self->api ) );
+    }
+
+    return wantarray ? @res : \@res;
 }
 
 =name2 create_folder
@@ -130,7 +158,6 @@ Returns true if successful.
 
 sub delete {
     my ( $self ) = @_;
-    croak("Joplin: Cannot delete the root folder!") if $self->is_root;
     $self->api->delete_folder( $self->id );
 }
 
@@ -188,27 +215,7 @@ Tests if this folder is the root folder.
 
 =cut
 
-sub is_root {
-    ( $_[0]->id // '1' ) eq '';
-}
-
-=head2 find_tags
-
-Finds matching tags.
-
-    @res = $root->find_tags("my tag");
-
-Returns a possible empty) array of Joplin::Tag objects.
-
-=cut
-
-sub find_tags {
-    my ( $self, $pat ) = @_;
-
-    my @res = map { Joplin::Tag->_wrap( $_, $self->api ) }
-      @{ $self->api->find_tags($pat) };
-    wantarray ? @res : \@res;
-}
+sub is_root { shift->isa('Joplin::Root') }
 
 ################ Initialisation ################
 

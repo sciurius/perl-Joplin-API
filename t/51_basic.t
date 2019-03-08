@@ -15,7 +15,7 @@ our %init;
 ok( $init{token}, "We have a token" );
 
 my $root = Joplin->connect( %init );
-ok( $root, "Got Root Folder instance" );
+ok( defined $root, "Got Root Folder instance" );
 
 diag("Testing Joplin server " . $root->api->get_server . "\n");
 

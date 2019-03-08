@@ -40,7 +40,8 @@ sub ping {
 # Note that joplin maintains times in milliseconds.
 
 sub iso8601date {
-    my ( $self, $time ) = shift(@_)/1000 || time;
+    my ( $self, $time ) = @_;
+    $time = @_ >= 2 ? $time/1000 : time;
     my @tm = localtime($time);
     sprintf( "%04d-%02d-%02d %02d:%02d:%02d",
              1900+$tm[5], 1+$tm[4], @tm[3,2,1,0] );

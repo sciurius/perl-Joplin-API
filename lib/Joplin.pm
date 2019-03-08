@@ -28,9 +28,6 @@ This class handles connecting to the Joplin server.
 
 package Joplin;
 
-use Joplin::API;
-use Joplin::Folder;
-
 our $VERSION = "0.01";
 
 =name1 METHODS
@@ -41,7 +38,7 @@ Connects to the Joplin notes server.
 
     $root = Joplin->connect(%init);
 
-Returns a Joplin::Folder object representing the root of all notes.
+Returns a Joplin::Root pseudo-folder object representing the root of all notes.
 
 Initial arguments:
 
@@ -74,11 +71,11 @@ Alternative name for C<token>.
 
 =cut
 
+use Joplin::Root;
+
 sub connect {
     my ( $pkg, %init ) = @_;
-    my $self = Joplin::Folder->_wrap( { id => '' },
-				      Joplin::API->new(%init) );
-    return $self;
+    return Joplin::Root->new(%init);
 }
 
 =head1 LICENSE

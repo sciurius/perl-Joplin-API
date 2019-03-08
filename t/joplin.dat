@@ -1,5 +1,7 @@
 #! perl
 
+our %init;
+
 $init{host}  = "localhost";
 $init{port}  = 41184;
 $init{token} = "";	# YOUR TOKEN HERE

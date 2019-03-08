@@ -211,6 +211,10 @@ my $properties =
       ro => [ qw(created_time updated_time
 		 encryption_cipher_text encryption_applied) ] },
 
+    root =>
+    { rw => [ qw(id parent_id ) ],
+      ro => [ ] },
+
     tag =>
     { rw => [ qw(id title user_created_time user_updated_time) ],
       ro => [ qw(created_time updated_time
@@ -252,11 +256,42 @@ Returns an array with folder info.
 
 Each element is a hash containing selected folder properties.
 
+The folders are returned as a tree. Subfolders of a folder are under
+the children key.
+
 =cut
 
 sub get_folders {
     my ( $self ) = @_;
     $self->query( "get", "/folders" );
+}
+
+=head2 get_folders_recursive
+
+Returns an array with folder info.
+
+    $res = $api->get_folders_recursive;
+    $res = $api->get_folders_recursive($folder_id);
+
+Each element is a hash containing selected folder properties.
+
+With a folder_id, only this folder plus subfolders are returned.
+
+The folders are returned as a flattened list.
+
+=cut
+
+sub get_folders_recursive {
+    my ( $self, $id, $list ) = @_;
+    $list //= $self->get_folders;
+    my @res;
+    foreach ( @$list ) {
+	next if $id && $_->{id} ne $id;
+	push( @res, $_ );
+	push( @res, @{ $self->get_folders_recursive( undef, $_->{children} ) } )
+	  if exists $_->{children};
+    }
+    wantarray ? @res : \@res;
 }
 
 =head2 get_folder
@@ -271,7 +306,7 @@ sub get_folder {
     my ( $self, $folder_id ) = @_;
     $folder_id
       ? $self->query( "get", "/folders/$folder_id" )
-      : { id => 0 };
+      : undef;
 }
 
 =head2 get_folder_notes
@@ -1008,10 +1043,6 @@ sub find_selected {
     my @res;
     foreach my $item ( @$list ) {
 	push( @res, { %$item } ) if !$pat || $item->{title} =~ $pat;
-	if ( exists $item->{children} ) {
-	    my $items = $self->find_selected( $pat, $item->{children} );
-	    push( @res, @$items ) if @$items;
-	}
     }
 
     return wantarray ? @res : \@res;

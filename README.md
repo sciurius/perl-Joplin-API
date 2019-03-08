@@ -21,6 +21,10 @@ The interface defines four classes:
 
 Using folder objects you can find and manipulate subfolders and notes. Notes can find and manipulate tags, and so on.
 
+Note that the Joplin data is considered as a folder on itself. This is
+handled by the class `Joplin::Root`. This class is a `Joplin::Folder` in
+all relevant aspects.
+
 #### Connecting to the Joplin server
 
     use Joplin;
@@ -36,6 +40,8 @@ For example, find the folder with name "Project". For simplicity, assume there i
     $prj = $root->find_folders("Project")->[0];
 
 All `find_...` methods take an optional argument which is a string or a pattern. If a string, it performs a case insensitive search on the names of the folders. A pattern can be used for more complex matches. If the argument is omitted, all results are returned.
+
+With a second, non-false argument, the search includes subfolders.
 
 #### Finding notes
 
@@ -88,6 +94,19 @@ This deletes the tag from **all** notes **and** from the system:
 This is a low level implementation of the [Joplin Web Clipper API](https://discourse.joplin.cozic.net/t/web-clipper-is-now-available-beta-feature/154/37).
 
 This API deals with JSON data and HTTP calls to the Joplin server. It can be used on itself but its main purpose is to support the higher level Joplin API.
+
+### script/listnotes.pl
+
+This is a simple script that lists the titles of the notes and folders
+in hierarchical order.
+
+Usage:
+
+    perl listnotes.pl [ options ]
+
+Relevant options:
+
+    --title=XXX     title (optional)
 
 ### script/addnote.pl
 
