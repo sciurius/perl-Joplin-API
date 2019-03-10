@@ -5,8 +5,8 @@
 # Author          : Johan Vromans
 # Created On      : Fri Mar  8 09:39:46 2019
 # Last Modified By: Johan Vromans
-# Last Modified On: Fri Mar  8 22:19:52 2019
-# Update Count    : 42
+# Last Modified On: Sun Mar 10 20:43:58 2019
+# Update Count    : 44
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -21,7 +21,7 @@ use Joplin;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( listnotes 0.01 );
+my ($my_name, $my_version) = qw( listnotes 0.02 );
 
 ################ Command line parameters ################
 
@@ -143,15 +143,14 @@ __END__
 
 =head1 NAME
 
-exportnote - export one or more notes from Joplin
+listnotes - list note titles hierarchically
 
 =head1 SYNOPSIS
 
 exportnote [options]
 
  Options:
-   --output=XXX		output file, if one note
-   --title=XXX		title of the note to export
+   --title=XXX		select starting folder(s) by title
    --server=XXX		the host running the Joplin server
    --token=XXX		Joplin server access token
    --ident		shows identification
@@ -164,16 +163,7 @@ exportnote [options]
 
 =over 8
 
-=item B<--output=>I<XXX>
-
-Specifies the file where the note must be written to.
-
-This is only possible if there is only one note for the given search title.
-
-Without B<--output>, notes are written into separate files in the
-current directory. The filenames are derived from the note titles.
-
-=item B<--host=>I<NNN>
+=item B<--server=>I<NNN>
 
 The host where the Joplin server is running.
 Default is C<http://127.0.0.1:41184>.
@@ -184,7 +174,7 @@ Access token for Joplin. You can find it on the Web Clipper options page.
 
 =item B<--title=>I<XXX>
 
-Specifies the title of the note to export.
+If specified, selects one or more folders to start listing.
 
 =item B<--help>
 
@@ -210,7 +200,7 @@ Runs quietly.
 
 =head1 DESCRIPTION
 
-B<This program> will export one or more notes from Joplin.
+B<This program> will list titles of Joplin notes hierarchically.
 
 =head1 AUTHOR
 
