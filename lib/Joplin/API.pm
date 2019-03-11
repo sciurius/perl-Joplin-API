@@ -1005,7 +1005,7 @@ sub query {
     elsif ( $method eq "delete" ) {
 	croak("Joplin::API: $method query doesn't take data") if $data;
 	$res = $ua->$method($path);
-	return $res->is_success;
+	return 1 if $res->is_success;
     }
     elsif ( $method eq "put" || $method eq "post" ) {
 	croak("Joplin::API: $method query requires data") unless $data;
