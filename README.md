@@ -108,6 +108,21 @@ Relevant options:
 
     --title=XXX     title (optional)
 
+### script/listtags.pl
+
+This is a simple script that lists the titles of the tags, with the
+number of notes that use this tag. With `-v`: also shows the title of
+the notes.
+
+Usage:
+
+    perl listtags.pl [ options ]
+
+Relevant options:
+
+    --title=XXX     title (optional)
+	--weed          removes tags without notes
+
 ### script/addnote.pl
 
 This is a simple script that can be used to add notes to Joplin.

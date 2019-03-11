@@ -7,6 +7,7 @@ README.md
 script/addnote.pl
 script/exportnote.pl
 script/listnotes.pl
+script/listtags.pl
 script/pp.PL
 t/00_load.t
 t/01_basic.t
