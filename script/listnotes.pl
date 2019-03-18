@@ -5,8 +5,8 @@
 # Author          : Johan Vromans
 # Created On      : Fri Mar  8 09:39:46 2019
 # Last Modified By: Johan Vromans
-# Last Modified On: Sun Mar 10 20:43:58 2019
-# Update Count    : 44
+# Last Modified On: Mon Mar 18 10:56:19 2019
+# Update Count    : 49
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -63,7 +63,7 @@ if ( $title ) {
     else {
 	$title = qr/^$title$/;
     }
-    $top = $root->find_folders($title);
+    $top = $root->find_folders($title, "recursive");
     die("No folders found\n") unless @$top;
 }
 
@@ -91,6 +91,8 @@ sub listnotes {
 	}
 	elsif ( ref($item) eq 'Joplin::Note' ) {
 	    print( $indent, $t, $item,
+		   " (" . length($item->body) . ")",
+		   " (" . length($item->body_html//"") . ")",
 		   " (" . $item->iso8601date($item->updated_time) . ")\n" );
 	}
 	else {

@@ -286,7 +286,11 @@ sub get_folders_recursive {
     $list //= $self->get_folders;
     my @res;
     foreach ( @$list ) {
-	next if $id && $_->{id} ne $id;
+	if ( defined($id) && $_->{id} ne $id ) {
+	    push( @res, @{ $self->get_folders_recursive( $id, $_->{children} ) } )
+	      if exists $_->{children};
+	    next;
+	}
 	push( @res, $_ );
 	push( @res, @{ $self->get_folders_recursive( undef, $_->{children} ) } )
 	  if exists $_->{children};
