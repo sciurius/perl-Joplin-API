@@ -9,6 +9,10 @@ package Joplin::Resource;
 
 use parent qw(Joplin::Base);
 
+# To attach a resource to a note, first create the resource with POST
+# /resources, then get the ID from there and simply add the resource
+# to the body of the note with the syntax
+# [](:/12345678123456781234567812345678).
 
 ################ Initialisation ################
 

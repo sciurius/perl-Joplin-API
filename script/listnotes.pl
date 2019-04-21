@@ -5,14 +5,15 @@
 # Author          : Johan Vromans
 # Created On      : Fri Mar  8 09:39:46 2019
 # Last Modified By: Johan Vromans
-# Last Modified On: Mon Mar 18 10:56:19 2019
-# Update Count    : 49
+# Last Modified On: Sun Apr 21 20:28:23 2019
+# Update Count    : 56
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
 
 use strict;
 use warnings;
+use utf8;
 use Encode;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
@@ -21,7 +22,7 @@ use Joplin;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( listnotes 0.02 );
+my ($my_name, $my_version) = qw( listnotes 0.03 );
 
 ################ Command line parameters ################
 
@@ -31,6 +32,9 @@ use Getopt::Long 2.13;
 my $title;
 my $server = "http://127.0.0.1:41184";
 my $verbose = 1;		# verbose processing
+my $resources = 0;		# unclude resources
+my $unused = 0;			# only unused resources
+my $weed = 0;			# weed out
 
 # Run Joplin and copy the token from the Web Clipper options page.
 my $token = $ENV{JOPLIN_APIKEY} // "YOUR TOKEN GOES HERE";
@@ -67,9 +71,21 @@ if ( $title ) {
     die("No folders found\n") unless @$top;
 }
 
+getresources($root) if $resources || $weed || $unused;
 listnotes($_) for @$top;
+listunusedresources($root) if $resources || $weed || $unused;
 
 ################ Subroutines ################
+
+my %rsc;
+
+sub getresources {
+    my ( $top ) = @_;
+    my $res = $top->api->get_resources;
+    foreach ( @$res ) {
+	$rsc{ $_->{id} } = [ 0, $_->{title}, $top->iso8601date($_->{updated_time}) ];
+    }
+}
 
 sub listnotes {
     my ( $top, $indent ) = @_;
@@ -86,20 +102,50 @@ sub listnotes {
 	my $t = "";
 	$t = $item->id . " " if $verbose > 1;
 	if ( ref($item) eq 'Joplin::Folder' ) {
-	    print( $indent, $t, $item, "\n" );
+	    print( $indent, $t, trunc($item), "\n" ) unless $unused;
 	    listnotes( $item, $indent . "  " );
 	}
 	elsif ( ref($item) eq 'Joplin::Note' ) {
-	    print( $indent, $t, $item,
+	    print( $indent, $t, trunc($item),
 		   " (" . length($item->body) . ")",
 		   " (" . length($item->body_html//"") . ")",
-		   " (" . $item->iso8601date($item->updated_time) . ")\n" );
+		   " (" . $item->iso8601date($item->updated_time) . ")\n" )
+	      unless $unused;
+	    next unless $resources || $weed || $unused;
+	    while ( $item->body =~ m/\(\:\/([0-9a-f]{32})\)/g ) {
+		$rsc{$1}[0]++;
+		next unless $resources;
+		$t = $1 . " " if $verbose > 1;
+		print( $indent, "  + ", $t, trunc($rsc{$1}[1]), " (" . $rsc{$1}[2] . ")\n" )
+		  if $resources;
+	    }
 	}
 	else {
 	    print("??? $item\n");
 	    use DDumper; DDumper($item); exit;
 	}
     }
+}
+
+sub listunusedresources {
+    my ( $top ) = ( @_ );
+    my $did = 0;
+    my $t;
+    foreach ( sort keys %rsc ) {
+	next if $rsc{$_}[0] > 0;
+	print( $weed ? "Removing" : "Unused", " resources\n") unless $did++;
+	$t = $_ . " " if $verbose > 1;
+	print( "  $t", $rsc{$_}[1], "\n" );
+	$top->api->delete_resource($_) if $weed;
+    }
+}
+
+sub trunc {
+    my ( $t ) = @_;
+    if ( length($t) > 42 ) {
+	return substr( $t, 0, 41 ) . "…";
+    }
+    $t;
 }
 
 ################ Subroutines ################
@@ -121,6 +167,9 @@ sub app_options {
 	GetOptions('title=s'	=> sub { $title  = decode_utf8($_[1]) },
 		   'server=s'	=> sub { $server = decode_utf8($_[1]) },
 		   'token=s'	=> \$token,
+		   'resources!'	=> \$resources,
+		   'weed'	=> \$weed,
+		   'unused'	=> \$unused,
 		   'ident'	=> \$ident,
 		   'verbose+'	=> \$verbose,
 		   'quiet'	=> sub { $verbose = 0 },
@@ -145,7 +194,7 @@ __END__
 
 =head1 NAME
 
-listnotes - list note titles hierarchically
+listnotes - list note titles and resources hierarchically
 
 =head1 SYNOPSIS
 
@@ -155,6 +204,9 @@ exportnote [options]
    --title=XXX		select starting folder(s) by title
    --server=XXX		the host running the Joplin server
    --token=XXX		Joplin server access token
+   --resources		includes resources
+   --unused		shows unused resources only
+   --weed		removes unused resources
    --ident		shows identification
    --quiet		runs quietly
    --help		shows a brief help message and exits
@@ -177,6 +229,18 @@ Access token for Joplin. You can find it on the Web Clipper options page.
 =item B<--title=>I<XXX>
 
 If specified, selects one or more folders to start listing.
+
+=item B<--resources>
+
+Shows resources used by the notes, and a summary of unused resources.
+
+=item B<--unused>
+
+Only shows a summary of unused resources.
+
+=item B<--weed>
+
+Shows a summary of unused resources and removes them.
 
 =item B<--help>
 

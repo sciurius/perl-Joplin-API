@@ -98,7 +98,8 @@ This API deals with JSON data and HTTP calls to the Joplin server. It can be use
 ### script/listnotes.pl
 
 This is a simple script that lists the titles of the notes and folders
-in hierarchical order.
+in hierarchical order. Optionally resources used by the notes can be
+listed and unused resources removed.
 
 Usage:
 
@@ -107,7 +108,8 @@ Usage:
 Relevant options:
 
     --title=XXX     title (optional)
-
+	--resources     include resources
+	
 ### script/listtags.pl
 
 This is a simple script that lists the titles of the tags, with the
