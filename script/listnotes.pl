@@ -5,8 +5,8 @@
 # Author          : Johan Vromans
 # Created On      : Fri Mar  8 09:39:46 2019
 # Last Modified By: Johan Vromans
-# Last Modified On: Sun Apr 21 20:28:23 2019
-# Update Count    : 56
+# Last Modified On: Sun May 12 17:54:55 2019
+# Update Count    : 59
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -22,7 +22,7 @@ use Joplin;
 # Package name.
 my $my_package = 'JoplinTools';
 # Program name and version.
-my ($my_name, $my_version) = qw( listnotes 0.03 );
+my ($my_name, $my_version) = qw( listnotes 0.04 );
 
 ################ Command line parameters ################
 
@@ -83,7 +83,7 @@ sub getresources {
     my ( $top ) = @_;
     my $res = $top->api->get_resources;
     foreach ( @$res ) {
-	$rsc{ $_->{id} } = [ 0, $_->{title}, $top->iso8601date($_->{updated_time}) ];
+	$rsc{ $_->{id} } = [ 0, $_->{title}, $top->iso8601date($_->{updated_time}), $_->{size} ];
     }
 }
 
@@ -116,7 +116,9 @@ sub listnotes {
 		$rsc{$1}[0]++;
 		next unless $resources;
 		$t = $1 . " " if $verbose > 1;
-		print( $indent, "  + ", $t, trunc($rsc{$1}[1]), " (" . $rsc{$1}[2] . ")\n" )
+		print( $indent, "  + ", $t, trunc($rsc{$1}[1]),
+		       " (" . $rsc{$1}[3] . ")",
+		       " (" . $rsc{$1}[2] . ")\n" )
 		  if $resources;
 	    }
 	}
@@ -198,7 +200,7 @@ listnotes - list note titles and resources hierarchically
 
 =head1 SYNOPSIS
 
-exportnote [options]
+listnotes [options]
 
  Options:
    --title=XXX		select starting folder(s) by title
