@@ -5,8 +5,8 @@
 # Author          : Johan Vromans
 # Created On      : Fri Mar  8 09:39:46 2019
 # Last Modified By: Johan Vromans
-# Last Modified On: Sun May 12 17:54:55 2019
-# Update Count    : 59
+# Last Modified On: Sun Mar  1 15:08:12 2020
+# Update Count    : 61
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -107,8 +107,8 @@ sub listnotes {
 	}
 	elsif ( ref($item) eq 'Joplin::Note' ) {
 	    print( $indent, $t, trunc($item),
-		   " (" . length($item->body) . ")",
-		   " (" . length($item->body_html//"") . ")",
+#		   " (" . length($item->body) . ")",
+#		   " (" . length($item->body_html//"") . ")",
 		   " (" . $item->iso8601date($item->updated_time) . ")\n" )
 	      unless $unused;
 	    next unless $resources || $weed || $unused;
@@ -132,7 +132,7 @@ sub listnotes {
 sub listunusedresources {
     my ( $top ) = ( @_ );
     my $did = 0;
-    my $t;
+    my $t = "";
     foreach ( sort keys %rsc ) {
 	next if $rsc{$_}[0] > 0;
 	print( $weed ? "Removing" : "Unused", " resources\n") unless $did++;
