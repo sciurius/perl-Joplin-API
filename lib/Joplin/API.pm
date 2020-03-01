@@ -194,7 +194,7 @@ sub set_debug {
 
 ################ Properties ################
 
-my $properties =
+my $properties =		# type 1
   { note =>
     { rw => [ qw(id parent_id title body
 		 latitude longitude altitude
@@ -205,28 +205,47 @@ my $properties =
       ro => [ qw(created_time updated_time
 		 encryption_cipher_text encryption_applied) ] },
 
-    folder =>
+    folder =>			# type 2
     { rw => [ qw(id parent_id title
 		 user_created_time user_updated_time) ],
       ro => [ qw(created_time updated_time
 		 encryption_cipher_text encryption_applied) ] },
 
-    root =>
+    root =>			# type 2 (pseudo)
     { rw => [ qw(id parent_id ) ],
       ro => [ ] },
 
-    tag =>
-    { rw => [ qw(id title user_created_time user_updated_time) ],
-      ro => [ qw(created_time updated_time
-		 encryption_cipher_text encryption_applied) ] },
+    # setting			# type 3
 
-    resource =>
+    resource =>			# type 4
     { rw => [ qw(id title mime filename
 		 user_created_time user_updated_time
 		 file_extension) ],
       ro => [ qw(created_time updated_time
 		 encryption_cipher_text
 		 encryption_applied encryption_blob_encrypted) ] },
+
+    tag =>			# type 5
+    { rw => [ qw(id title user_created_time user_updated_time) ],
+      ro => [ qw(created_time updated_time
+		 encryption_cipher_text encryption_applied) ] },
+
+    # notetag			# type 6
+    # search			# type 7
+    # alarm			# type 8
+    # master key		# type 9
+    # item change		# type 10
+    # note resource		# type 11
+    # resource local state	# type 11
+
+    notediff =>			# type 12
+    { rw => [ qw(id parent_id title_diff body_diff item_id
+		 item_updated_time
+		 body_html base_url image_data_url crop_rect) ],
+      ro => [ qw(created_time updated_time
+		 encryption_cipher_text encryption_applied) ] },
+
+    # migration type 14
   };
 
 sub properties {
