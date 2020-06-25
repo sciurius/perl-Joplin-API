@@ -23,11 +23,12 @@ Returns the note object with updated properties.
 
 sub update {
     my ( $self ) = @_;
-    my $current = $self->api->get_note( $self->id );
+    my $current = $self->api->get_note( $self->id, "full" );
     my $new = { %$self };
     delete $new->{_api};
     my $data = {};
     foreach ( keys(%$current) ) {
+	warn("update: undef $_") unless defined $current->{$_};
 	$data->{$_} = $new->{$_}
 	  if #exists $self->properties("rw")->{$_} &&
 	    defined($new->{$_}) && $new->{$_} ne $current->{$_};

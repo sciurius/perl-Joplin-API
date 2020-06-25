@@ -1013,6 +1013,7 @@ sub query {
 
     $path = $self->{server} . $path;
     $path .= "?token=" . $self->{apikey} unless $path eq "/ping";
+    $path =~ s'\?fields=body\?token='?fields=body&token=';
 
     warn( uc($method), " $path" ) if $self->{debug};
 
