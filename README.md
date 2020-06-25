@@ -166,6 +166,11 @@ You can view, modify, rename, create notes and folders. All changes are immediat
 
 Limitations: No duplicate file/folder names.
 
+Usage: Create an new directory and run joplinfs.pl with that directory
+as argument. Your notes will be visible in the `joplin` directory.
+
+To stop, run `fusermount -u dir` where _dir_ is the directory.
+
 ### cloud/addnote.pl
 
 This tool is similar to `script/addnote.pl`, but it doesn't use the Web Clipper API and hence does not require a running Joplin instance. Instead, it uses the cloud storage.
