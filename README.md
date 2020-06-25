@@ -143,6 +143,29 @@ Relevant options:
 
 The document will be added to the notes collection into the parent folder.
 
+### script/joplinfs.pl
+
+An experimental (proof-of-concept) implementation of a Joplin filesystem. It works (Linux) with FUSE. It uses the Joplinserver as a back end and provides a filesystem view on the notes. Notes and folders are identified by name.
+
+    $ ls -l tmp/notes/joplin/Scratch/
+    -rw-r--r-- 1 jv jv 0 Mar  6 08:35 Checkboxes.md
+    -rw-r--r-- 1 jv jv 0 Jan 28  2019 Lorem Ipsum.md
+    -rw-r--r-- 1 jv jv 0 Mar  3  2019 README.md
+    drwxr-xr-x 1 jv jv 3 Apr 30 11:41 SubScratch/
+
+    % cat tmp/notes/joplin/Scratch/Checkboxes.md 
+    - [ ] Seitan
+    - [ ] Blanke bonen
+    - [ ] Berglinzen
+    - [ ] Couscous
+    - [ ] Citroensap
+    - [ ] Limoensap
+
+Dates are accurate. Size of a folder is the number of subnotes/folders.
+You can view, modify, rename, create notes and folders. All changes are immediately reflected in Joplin.
+
+Limitations: No duplicate file/folder names.
+
 ### cloud/addnote.pl
 
 This tool is similar to `script/addnote.pl`, but it doesn't use the Web Clipper API and hence does not require a running Joplin instance. Instead, it uses the cloud storage.
